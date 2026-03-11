@@ -33,32 +33,44 @@ export default function Header({ session, currentPrice }: Props) {
   const pnlPct   = session ? (totalPnl / session.initial_balance) * 100 : 0
 
   return (
-    <header className="flex items-center justify-between px-4 h-12 border-b border-[#21262d] bg-[#0d1117] shrink-0">
-      {/* Logo */}
-      <div className="flex items-center gap-2">
-        <span className="text-[#f0b429] font-bold text-base tracking-widest">XAUUSD</span>
-        <span className="text-[#8b949e] text-xs">盘感训练</span>
+    <header className="shrink-0 border-b border-[#21262d] bg-[#0d1117] px-3 py-2 md:px-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-base font-bold tracking-widest text-[#f0b429]">XAUUSD</span>
+          <span className="text-xs text-[#8b949e]">盘感训练</span>
+        </div>
+
+        {currentPrice ? (
+          <div className="flex items-center gap-3 text-[11px] font-mono md:text-xs">
+            <div>
+              <span className="text-[#8b949e]">Bid </span>
+              <span className="font-bold text-[#ef5350]">{currentPrice.bid.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="text-[#8b949e]">Ask </span>
+              <span className="font-bold text-[#26a69a]">{currentPrice.ask.toFixed(2)}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="w-24" />
+        )}
       </div>
 
-      {/* 中央：游戏状态 */}
       {session ? (
-        <div className="flex items-center gap-6 text-xs">
-          {/* 轮次 */}
+        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] md:flex md:items-center md:gap-6 md:text-xs">
           <div className="flex items-center gap-1">
             <span className="text-[#8b949e]">轮次</span>
-            <span className="text-white font-mono font-bold">
+            <span className="font-mono font-bold text-white">
               {session.trades_used}
               <span className="text-[#8b949e]">/{session.max_trades}</span>
             </span>
           </div>
-          {/* 余额 */}
           <div className="flex items-center gap-1">
             <span className="text-[#8b949e]">余额</span>
-            <span className="text-white font-mono font-bold">
+            <span className="font-mono font-bold text-white">
               ${session.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </span>
           </div>
-          {/* 总盈亏 */}
           <div className="flex items-center gap-1">
             <span className="text-[#8b949e]">总盈亏</span>
             <span className={`font-mono font-bold ${pnlClass(totalPnl)}`}>
@@ -68,32 +80,15 @@ export default function Header({ session, currentPrice }: Props) {
               </span>
             </span>
           </div>
-          {/* 游戏内时间 */}
           <div className="flex items-center gap-1">
             <span className="text-[#8b949e]">游戏时间</span>
-            <span className="text-[#f0b429] font-mono font-bold">
+            <span className="font-mono font-bold text-[#f0b429]">
               {formatGameTime(session.current_time)}
             </span>
           </div>
         </div>
       ) : (
-        <div className="text-[#8b949e] text-xs">— 尚未开始游戏 —</div>
-      )}
-
-      {/* 右侧：当前价格 */}
-      {currentPrice ? (
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <div>
-            <span className="text-[#8b949e]">Bid </span>
-            <span className="text-[#ef5350] font-bold">{currentPrice.bid.toFixed(2)}</span>
-          </div>
-          <div>
-            <span className="text-[#8b949e]">Ask </span>
-            <span className="text-[#26a69a] font-bold">{currentPrice.ask.toFixed(2)}</span>
-          </div>
-        </div>
-      ) : (
-        <div className="w-28" />
+        <div className="mt-1 text-xs text-[#8b949e]">— 尚未开始游戏 —</div>
       )}
     </header>
   )

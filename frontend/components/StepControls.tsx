@@ -20,24 +20,28 @@ const STEPS: { label: string; minutes: 1 | 5 | 15 | 60 }[] = [
 
 export default function StepControls({ disabled, loading, onStep }: Props) {
   return (
-    <div className="flex items-center justify-center gap-3 px-4 py-2 border-t border-[#21262d] bg-[#161b22] shrink-0">
-      <span className="text-[#8b949e] text-xs mr-2">时间推演</span>
-      {STEPS.map(({ label, minutes }) => (
-        <button
-          key={minutes}
-          onClick={() => onStep(minutes)}
-          disabled={disabled || loading}
-          className={`
-            px-5 py-1.5 rounded border text-sm font-mono font-bold transition-all
-            ${disabled || loading
-              ? 'border-[#30363d] text-[#30363d] cursor-not-allowed'
-              : 'border-[#f0b429] text-[#f0b429] hover:bg-[#f0b429] hover:text-black cursor-pointer'
-            }
-          `}
-        >
-          {loading ? '…' : label}
-        </button>
-      ))}
+    <div className="shrink-0 border-t border-[#21262d] bg-[#161b22] px-3 py-2">
+      <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
+        <span className="w-full text-center text-[11px] text-[#8b949e] md:mr-2 md:w-auto md:text-xs">
+          时间推演
+        </span>
+        {STEPS.map(({ label, minutes }) => (
+          <button
+            key={minutes}
+            onClick={() => onStep(minutes)}
+            disabled={disabled || loading}
+            className={`
+              min-w-16 rounded border px-4 py-1.5 text-xs font-bold font-mono transition-all md:px-5 md:text-sm
+              ${disabled || loading
+                ? 'cursor-not-allowed border-[#30363d] text-[#30363d]'
+                : 'cursor-pointer border-[#f0b429] text-[#f0b429] hover:bg-[#f0b429] hover:text-black'
+              }
+            `}
+          >
+            {loading ? '…' : label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

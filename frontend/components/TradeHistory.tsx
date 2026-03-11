@@ -34,21 +34,24 @@ export default function TradeHistory({ trades }: Props) {
         <span className="text-[#8b949e] text-xs font-bold uppercase tracking-wider">
           交易记录 ({trades.length})
         </span>
-        {trades.length > 0 && (
-          <span className={`text-xs font-mono font-bold ${totalPnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-            合计: {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-[#8b949e] sm:hidden">可左右滑动</span>
+          {trades.length > 0 && (
+            <span className={`text-xs font-mono font-bold ${totalPnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
+              合计: {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 表格 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-auto">
         {trades.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[#8b949e] text-xs">
             尚无交易记录
           </div>
         ) : (
-          <table className="w-full text-xs font-mono">
+          <table className="min-w-[980px] w-full text-xs font-mono">
             <thead className="sticky top-0 bg-[#161b22]">
               <tr className="text-[#8b949e] border-b border-[#21262d]">
                 <th className="px-3 py-1.5 text-left">#</th>

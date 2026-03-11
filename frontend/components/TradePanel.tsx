@@ -92,13 +92,13 @@ export default function TradePanel({
   const rr = riskUsd > 0 ? (rewardUsd / riskUsd).toFixed(2) : '—'
 
   return (
-    <div className="flex flex-col h-full bg-[#161b22] border-l border-[#21262d] text-xs">
+    <div className="flex h-full flex-col bg-[#161b22] text-xs lg:border-l lg:border-[#21262d]">
       {/* 标题 */}
-      <div className="px-4 py-2 border-b border-[#21262d] text-[#8b949e] font-bold uppercase tracking-wider">
+      <div className="border-b border-[#21262d] px-4 py-2 font-bold uppercase tracking-wider text-[#8b949e]">
         下单
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 space-y-3 overflow-y-auto p-3">
         {/* 买入 / 卖出 方向 */}
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -243,7 +243,7 @@ export default function TradePanel({
       </div>
 
       {/* 底部：sessionId 调试信息 */}
-      <div className="px-3 py-1.5 border-t border-[#21262d] text-[#30363d] text-[10px] truncate">
+      <div className="truncate border-t border-[#21262d] px-3 py-1.5 text-[10px] text-[#30363d]">
         {sessionId ? `SID: ${sessionId.slice(0, 8)}…` : '—'}
       </div>
     </div>

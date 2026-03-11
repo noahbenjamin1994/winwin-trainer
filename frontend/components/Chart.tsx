@@ -86,6 +86,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
         background: { color: '#0d1117' },
         textColor:  '#8b949e',
         fontSize:   11,
+        attributionLogo: false, // 使用自定义文字归因，避免图表内悬浮图标
       },
       grid: {
         vertLines: { color: '#21262d' },
@@ -172,13 +173,13 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
   return (
     <div className="flex flex-col h-full">
       {/* 周期切换栏 */}
-      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[#21262d] bg-[#161b22] shrink-0">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-[#21262d] bg-[#161b22] px-3 py-1.5 shrink-0">
         {TIMEFRAMES.map(tf => (
           <button
             key={tf}
             onClick={() => onTimeframeChange(tf)}
             className={`
-              px-3 py-0.5 rounded text-xs font-mono transition-colors
+              shrink-0 rounded px-3 py-0.5 text-xs font-mono transition-colors
               ${timeframe === tf
                 ? 'bg-[#f0b429] text-black font-bold'
                 : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'
@@ -188,7 +189,15 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
             {tf}
           </button>
         ))}
-        <span className="ml-auto text-[10px] text-[#8b949e]">XAUUSD · USD/盎司</span>
+        <span className="ml-auto shrink-0 text-[10px] text-[#8b949e]">XAUUSD · USD/盎司</span>
+        <a
+          href="https://www.tradingview.com/"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="ml-2 shrink-0 text-[10px] text-[#8b949e] underline hover:text-white"
+        >
+          Powered by TradingView
+        </a>
       </div>
 
       {/* 图表容器：flex-1 撑满剩余高度。未挂载时显示占位，避免 createChart 在 SSR 执行 */}

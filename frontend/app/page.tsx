@@ -57,8 +57,8 @@ function StartScreen({ onStart }: { onStart: (balance: number) => void }) {
   }
 
   return (
-    <div className="flex items-center justify-center h-screen bg-[#0d1117]">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-8 w-96 space-y-5">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#0d1117] px-4 py-6">
+      <div className="w-full max-w-sm space-y-5 rounded-xl border border-[#30363d] bg-[#161b22] p-6 md:max-w-md md:p-8">
         <div className="text-center">
           <div className="text-[#f0b429] text-3xl font-bold tracking-widest mb-1">XAUUSD</div>
           <div className="text-[#8b949e] text-sm">黄金期货盘感训练系统</div>
@@ -257,7 +257,7 @@ export default function Home() {
 
   // ── 渲染：主游戏界面 ───────────────────────────────────
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#0d1117]">
+    <div className="flex min-h-[100dvh] flex-col overflow-y-auto bg-[#0d1117] md:h-screen md:overflow-hidden">
       {/* 顶栏 */}
       <Header session={session} currentPrice={currentPrice} />
 
@@ -270,9 +270,9 @@ export default function Home() {
       )}
 
       {/* 主内容区（图表 + 交易面板） */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* K 线图区域 */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex h-[46dvh] min-h-[300px] flex-col overflow-hidden lg:h-auto lg:flex-1">
           <Chart
             ref={chartRef}
             timeframe={timeframe}
@@ -280,8 +280,8 @@ export default function Home() {
           />
         </div>
 
-        {/* 右侧交易面板（固定宽度） */}
-        <div className="w-56 shrink-0 overflow-y-auto">
+        {/* 右侧交易面板（移动端改为下方全宽） */}
+        <div className="w-full shrink-0 border-t border-[#21262d] lg:w-72 lg:border-l lg:border-t-0 lg:overflow-y-auto">
           <TradePanel
             sessionId={session.session_id}
             currentPrice={currentPrice}
@@ -300,7 +300,7 @@ export default function Home() {
       />
 
       {/* 底部交易记录 */}
-      <div className="h-40 shrink-0">
+      <div className="h-56 shrink-0 lg:h-40">
         <TradeHistory trades={session.trade_history} />
       </div>
 
