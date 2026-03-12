@@ -84,3 +84,36 @@ export interface KlinesResponse {
 }
 
 export type Timeframe = '1M' | '5M' | '15M' | '1H' | '4H' | '1D'
+
+export interface AuthLoginResponse {
+  token: string
+  username: string
+  created: boolean
+  generated_password?: string
+}
+
+export interface AuthMeResponse {
+  username: string
+}
+
+export interface UserStats {
+  username: string
+  sessions: number
+  total_trades: number
+  wins: number
+  losses: number
+  win_rate: number
+  total_pnl: number
+  sharpe: number
+}
+
+export type LeaderboardSort = 'win_rate' | 'sharpe' | 'total_pnl'
+
+export interface LeaderboardRow extends UserStats {
+  rank: number
+}
+
+export interface LeaderboardResponse {
+  sort_by: LeaderboardSort
+  rows: LeaderboardRow[]
+}

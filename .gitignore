@@ -13,6 +13,8 @@ frontend/.env*.local
 # 数据文件（不提交 parquet，太大）
 data_history/
 *.parquet
+backend/*.db
+backend/*.db-*
 
 # OS
 .DS_Store
