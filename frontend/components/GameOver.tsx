@@ -12,7 +12,8 @@ interface Props {
 
 const REASON_TEXT: Record<string, string> = {
   max_trades:   '已完成全部 10 次交易',
-  margin_call:  '账户爆仓',
+  stop_out:     '保证金比例触发 30% 强平',
+  data_end:     '已到达历史数据末尾',
 }
 
 export default function GameOver({ reason, initialBalance, finalBalance, trades, onRestart }: Props) {
@@ -30,7 +31,7 @@ export default function GameOver({ reason, initialBalance, finalBalance, trades,
         {/* 标题 */}
         <div className="text-center">
           <div className="text-2xl font-bold mb-1">
-            {reason === 'margin_call' ? '💥 爆仓' : '🏁 训练结束'}
+            {reason === 'stop_out' ? '💥 强平' : '🏁 训练结束'}
           </div>
           <div className="text-[#8b949e] text-sm">{REASON_TEXT[reason] ?? reason}</div>
         </div>

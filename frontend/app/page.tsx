@@ -35,6 +35,8 @@ import GameOver     from '@/components/GameOver'
 import * as api     from '@/lib/api'
 import type { GameSession, PriceTick, Timeframe } from '@/lib/types'
 
+type OrderLevels = { sl: number; tp: number } | null
+
 // ─────────────────────────────────────────────────────────
 // 开始画面：输入初始本金
 // ─────────────────────────────────────────────────────────
@@ -45,7 +47,7 @@ function StartScreen({ onStart }: { onStart: (balance: number) => void }) {
 
   async function handleStart() {
     const val = parseFloat(balance)
-    if (isNaN(val) || val < 1000) { setError('最小初始本金 $1,000'); return }
+    if (isNaN(val) || val < 10) { setError('最小初始本金 $10'); return }
     setLoading(true)
     setError('')
     try {
@@ -68,8 +70,8 @@ function StartScreen({ onStart }: { onStart: (balance: number) => void }) {
           <label className="text-[#8b949e] text-xs block mb-1.5">初始本金（USD）</label>
           <input
             type="number"
-            min="1000"
-            step="1000"
+            min="10"
+            step="10"
             value={balance}
             onChange={e => setBalance(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleStart()}
@@ -113,6 +115,8 @@ export default function Home() {
   const [timeframe,    setTimeframe]    = useState<Timeframe>('1H')
   const [loading,      setLoading]      = useState(false)   // 任意 API 请求中
   const [error,        setError]        = useState('')
+  const [tradePanelResetToken, setTradePanelResetToken] = useState(0)
+  const [orderLevels, setOrderLevels] = useState<OrderLevels>(null)
 
   // 图表 ref（直接操作图表，绕过 React 重渲）
   const chartRef = useRef<ChartRef>(null)
@@ -121,6 +125,7 @@ export default function Home() {
   const handleStart = useCallback(async (initialBalance: number) => {
     setLoading(true)
     setError('')
+    setOrderLevels(null)
     try {
       const data = await api.startGame(initialBalance)
       // 构造完整 session 对象（初始时 trade_history 为空）
@@ -150,6 +155,10 @@ export default function Home() {
     }
   }, [])
 
+  const handleLevelsChange = useCallback((levels: OrderLevels) => {
+    setOrderLevels(levels)
+  }, [])
+
   // ── 切换周期 ───────────────────────────────────────────
   const handleTimeframeChange = useCallback(async (tf: Timeframe) => {
     if (!session) return
@@ -175,9 +184,16 @@ export default function Home() {
     try {
       const res = await api.stepGame(session.session_id, minutes)
 
-      // 更新 session 时间游标
-      setSession(prev => prev ? { ...prev, current_time: res.current_time } : null)
+      // 更新 session 时间游标与结束状态（到数据末尾时后端会置 game_over）
+      setSession(prev => prev ? {
+        ...prev,
+        current_time: res.current_time,
+        game_over: res.game_over,
+        game_over_reason: res.game_over_reason,
+      } : null)
       setCurrentPrice(res.current_price)
+      setTradePanelResetToken(prev => prev + 1)
+      if (res.game_over) setOrderLevels(null)
 
       // 将增量 1M K 线推送给图表
       // 注意：如果当前周期不是1M，需要重采样后的K线
@@ -235,6 +251,8 @@ export default function Home() {
       const klinesRes = await api.getKlines(session.session_id, timeframe, 300)
       chartRef.current?.setData(klinesRes.klines)
       setCurrentPrice(klinesRes.current_price)
+      setTradePanelResetToken(prev => prev + 1)
+      if (res.game_over) setOrderLevels(null)
     } catch (e) {
       setError(String(e))
     } finally {
@@ -248,6 +266,7 @@ export default function Home() {
     setCurrentPrice(null)
     setTimeframe('1H')
     setError('')
+    setOrderLevels(null)
   }, [])
 
   // ── 渲染：开始画面 ─────────────────────────────────────
@@ -276,6 +295,7 @@ export default function Home() {
           <Chart
             ref={chartRef}
             timeframe={timeframe}
+            orderLevels={orderLevels}
             onTimeframeChange={handleTimeframeChange}
           />
         </div>
@@ -285,8 +305,10 @@ export default function Home() {
           <TradePanel
             sessionId={session.session_id}
             currentPrice={currentPrice}
+            resetToken={tradePanelResetToken}
             disabled={session.game_over || session.trades_used >= session.max_trades}
             loading={loading}
+            onLevelsChange={handleLevelsChange}
             onOrder={handleOrder}
           />
         </div>

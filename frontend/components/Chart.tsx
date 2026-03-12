@@ -21,7 +21,9 @@ import {
 import {
   createChart,
   CrosshairMode,
+  LineStyle,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type CandlestickData,
   type HistogramData,
@@ -39,6 +41,7 @@ export interface ChartRef {
 
 interface Props {
   timeframe: Timeframe
+  orderLevels: { sl: number; tp: number } | null
   onTimeframeChange: (tf: Timeframe) => void
 }
 
@@ -64,7 +67,7 @@ function toVolume(bar: OHLCBar): HistogramData {
 }
 
 const Chart = forwardRef<ChartRef, Props>(function Chart(
-  { timeframe, onTimeframeChange },
+  { timeframe, orderLevels, onTimeframeChange },
   ref,
 ) {
   // mounted 守卫：lightweight-charts 依赖 window/DOM，不能在 SSR 期间初始化
@@ -75,6 +78,8 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
   const chartRef      = useRef<IChartApi | null>(null)
   const candleRef     = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const volumeRef     = useRef<ISeriesApi<'Histogram'> | null>(null)
+  const slLineRef     = useRef<IPriceLine | null>(null)
+  const tpLineRef     = useRef<IPriceLine | null>(null)
 
   // ── 初始化图表（仅 mount 时执行一次）──────────────────
   // 必须等 mounted=true 后才能初始化（依赖 DOM + window）
@@ -141,6 +146,14 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
     ro.observe(containerRef.current)
 
     return () => {
+      if (candleRef.current && slLineRef.current) {
+        candleRef.current.removePriceLine(slLineRef.current)
+      }
+      if (candleRef.current && tpLineRef.current) {
+        candleRef.current.removePriceLine(tpLineRef.current)
+      }
+      slLineRef.current = null
+      tpLineRef.current = null
       ro.disconnect()
       chart.remove()
       chartRef.current  = null
@@ -169,6 +182,41 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
   }, [])
 
   useImperativeHandle(ref, () => ({ setData, updateBars }), [setData, updateBars])
+
+  // 更新 SL/TP 预览线（虚线）
+  useEffect(() => {
+    if (!candleRef.current) return
+
+    if (slLineRef.current) {
+      candleRef.current.removePriceLine(slLineRef.current)
+      slLineRef.current = null
+    }
+    if (tpLineRef.current) {
+      candleRef.current.removePriceLine(tpLineRef.current)
+      tpLineRef.current = null
+    }
+
+    if (!orderLevels) return
+    if (!Number.isFinite(orderLevels.sl) || !Number.isFinite(orderLevels.tp)) return
+
+    slLineRef.current = candleRef.current.createPriceLine({
+      price: orderLevels.sl,
+      color: '#ef5350',
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: 'SL',
+    })
+
+    tpLineRef.current = candleRef.current.createPriceLine({
+      price: orderLevels.tp,
+      color: '#26a69a',
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: 'TP',
+    })
+  }, [orderLevels])
 
   return (
     <div className="flex flex-col h-full">

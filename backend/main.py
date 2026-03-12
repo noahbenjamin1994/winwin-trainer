@@ -45,6 +45,9 @@ SPREAD: float = 0.20          # 固定点差 $0.20（20 points）
 CONTRACT_SIZE: int = 100       # 1手 = 100 盎司
 MAX_TRADES: int = 10           # 每局最多开仓次数
 LEVERAGE: int = 100            # 杠杆比例
+MARGIN_REQUIRED_PER_LOT: float = 1000.0  # 金荣中国规则：伦敦金 1 手保证金 $1000
+MARGIN_CALL_RATIO_PCT: float = 100.0     # <=100% 追加保证金（当前系统仅用于判定，不单独通知）
+STOP_OUT_RATIO_PCT: float = 30.0         # <=30% 强平
 
 # pandas resample 规则映射
 TIMEFRAME_RULES: dict[str, str] = {
@@ -79,9 +82,18 @@ print(f"[启动] 数据加载完成：{len(df_1m):,} 行，"
 
 # 预计算有效随机入场范围：
 #   - 前 5000 根：需要足够的历史K线供图表显示
-#   - 后 5000 根：需要足够的未来数据供快进结算
-VALID_START_IDX = 5000
-VALID_END_IDX = len(df_1m) - 5000
+#   - 后 10000 根：需要足够的未来数据供快进结算（较原先提升 1 倍）
+HISTORY_BUFFER_BARS = 5000
+FUTURE_BUFFER_BARS = 10000
+
+VALID_START_IDX = HISTORY_BUFFER_BARS
+VALID_END_IDX = len(df_1m) - FUTURE_BUFFER_BARS
+
+if VALID_END_IDX <= VALID_START_IDX:
+    raise RuntimeError(
+        "历史数据不足：请确保数据行数大于 "
+        f"{HISTORY_BUFFER_BARS + FUTURE_BUFFER_BARS}"
+    )
 
 # ─────────────────────────────────────────────────────────────
 # 游戏 Session 数据结构
@@ -108,7 +120,7 @@ sessions: dict[str, GameSession] = {}
 # Pydantic 请求模型
 # ─────────────────────────────────────────────────────────────
 class StartGameRequest(BaseModel):
-    initial_balance: float = Field(default=10000.0, ge=1000, description="初始本金（最小$1000）")
+    initial_balance: float = Field(default=10000.0, ge=10, description="初始本金（最小$10）")
 
 class StepRequest(BaseModel):
     session_id: str
@@ -226,6 +238,9 @@ def fast_forward_order(
     else:
         entry_price = round(bid_at_entry, 2)            # Bid 价
 
+    # 本笔持仓占用保证金（伦敦金：1手=$1000）
+    used_margin = lot_size * MARGIN_REQUIRED_PER_LOT
+
     # ── 从下一分钟开始快进 ──
     # iloc[1:] 跳过 entry_time 所在的行，从下一根K线开始检查
     future_df = df_1m.loc[entry_time:].iloc[1:]
@@ -241,8 +256,9 @@ def fast_forward_order(
         low  = float(bar["low"])
         high = float(bar["high"])
 
-        # ──── 爆仓检查（优先级最高）────
-        # 以当分钟对持仓最不利的价格估算浮动盈亏
+        # ──── 保证金强平检查（优先级最高）────
+        # 以当分钟最不利价格估算净值与保证金比例：
+        # 保证金比例 = 净值 / 占用保证金 * 100%
         if direction == "Buy":
             worst_price = low                  # 多单最坏是价格跌到最低
             worst_pnl = (worst_price - entry_price) * lot_size * CONTRACT_SIZE
@@ -250,11 +266,14 @@ def fast_forward_order(
             worst_price = high + SPREAD        # 空单最坏是价格涨到最高（Ask）
             worst_pnl = (entry_price - worst_price) * lot_size * CONTRACT_SIZE
 
-        if session.balance + worst_pnl <= 0:
-            # 爆仓：以最坏价格平仓
+        equity_worst = session.balance + worst_pnl
+        margin_ratio = (equity_worst / used_margin) * 100.0
+
+        if margin_ratio <= STOP_OUT_RATIO_PCT:
+            # 触发强平：以最坏价格平仓
             close_price = worst_price
             close_time  = ts
-            close_reason = "margin_call"
+            close_reason = "stop_out"
             break
 
         # ──── SL/TP 触发检查 ────
@@ -322,9 +341,12 @@ def fast_forward_order(
     session.trade_history.append(trade_record)
 
     # ── 检查游戏结束条件 ──
-    if close_reason == "margin_call" or session.balance <= 0:
+    if close_reason == "stop_out" or session.balance <= 0:
         session.game_over        = True
-        session.game_over_reason = "margin_call"
+        session.game_over_reason = "stop_out"
+    elif close_reason == "data_end":
+        session.game_over        = True
+        session.game_over_reason = "data_end"
     elif session.trades_used >= MAX_TRADES:
         session.game_over        = True
         session.game_over_reason = "max_trades"
@@ -423,10 +445,16 @@ def step_game(req: StepRequest):
     if req.step_minutes not in (1, 5, 15, 60):
         raise HTTPException(400, "step_minutes 只支持 1/5/15/60")
 
-    new_time: pd.Timestamp = session.current_time + pd.Timedelta(minutes=req.step_minutes)  # type: ignore[operator]
+    target_time: pd.Timestamp = session.current_time + pd.Timedelta(minutes=req.step_minutes)  # type: ignore[operator]
+    max_time: pd.Timestamp = df_1m.index.max()  # type: ignore[assignment]
 
-    if new_time > df_1m.index.max():  # type: ignore[operator]
-        raise HTTPException(400, "已到达数据末尾")
+    # 到达数据末尾视为正常结束，不再抛错
+    if target_time >= max_time:
+        new_time = max_time
+        session.game_over = True
+        session.game_over_reason = "data_end"
+    else:
+        new_time = target_time
 
     # 获取本次步进新增的 1M K 线（排除当前时间那根，只取新增部分）
     # 注意：iloc[1:] 排除 current_time，防止重复推送
@@ -439,6 +467,8 @@ def step_game(req: StepRequest):
     return {
         "current_time": new_time.isoformat(),
         "new_bars":     new_bars,               # 增量 1M K 线列表
+        "game_over":    session.game_over,
+        "game_over_reason": session.game_over_reason,
         "current_price": {
             "bid": round(bid, 2),
             "ask": round(bid + SPREAD, 2),
@@ -464,6 +494,16 @@ def place_order(req: OrderRequest):
 
     if req.direction not in ("Buy", "Sell"):
         raise HTTPException(400, "direction 必须为 Buy 或 Sell")
+
+    # ── 开仓保证金校验（1手=$1000）──
+    required_margin = req.lot_size * MARGIN_REQUIRED_PER_LOT
+    if session.balance < required_margin:
+        raise HTTPException(
+            400,
+            "保证金不足："
+            f"开仓需要 ${required_margin:.2f}，"
+            f"当前余额 ${session.balance:.2f}"
+        )
 
     # ── 验证 SL/TP 合理性 ──
     bid = _get_bid_at(session.current_time)

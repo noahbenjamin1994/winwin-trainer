@@ -17,44 +17,71 @@ import type { PriceTick } from '@/lib/types'
 interface Props {
   sessionId: string
   currentPrice: PriceTick | null
+  resetToken: number
   disabled: boolean
   loading: boolean
+  onLevelsChange: (levels: { sl: number; tp: number } | null) => void
   onOrder: (direction: 'Buy' | 'Sell', lotSize: number, sl: number, tp: number) => void
 }
 
 const SPREAD = 0.20
+const DEFAULT_SL_OFFSET = 2
+const DEFAULT_TP_OFFSET = 4
+const OFFSET_OPTIONS = [2, 4, 8, 16]
+const MIN_PROTECT_DISTANCE = 2
 
 export default function TradePanel({
   sessionId,
   currentPrice,
+  resetToken,
   disabled,
   loading,
+  onLevelsChange,
   onOrder,
 }: Props) {
   const [direction, setDirection] = useState<'Buy' | 'Sell'>('Buy')
   const [lotSize,   setLotSize]   = useState('0.10')
   const [sl,        setSl]        = useState('')
   const [tp,        setTp]        = useState('')
-  const [slPts,     setSlPts]     = useState('30')  // 止损点数（快捷）
-  const [tpPts,     setTpPts]     = useState('60')  // 止盈点数（快捷）
+  const [slOffset,  setSlOffset]  = useState(DEFAULT_SL_OFFSET)
+  const [tpOffset,  setTpOffset]  = useState(DEFAULT_TP_OFFSET)
   const [error,     setError]     = useState('')
 
   const bid = currentPrice?.bid ?? 0
   const ask = currentPrice?.ask ?? (bid + SPREAD)
 
-  // 根据点数快捷计算 SL/TP
+  // 在步进/下单后恢复默认偏移
+  useEffect(() => {
+    setSlOffset(DEFAULT_SL_OFFSET)
+    setTpOffset(DEFAULT_TP_OFFSET)
+  }, [resetToken])
+
+  // 根据快捷偏移计算 SL/TP（价格单位）
   useEffect(() => {
     if (!bid) return
-    const slP = parseFloat(slPts) || 30
-    const tpP = parseFloat(tpPts) || 60
     if (direction === 'Buy') {
-      setSl((bid - slP * 0.01).toFixed(2))  // 1点 = $0.01
-      setTp((bid + tpP * 0.01).toFixed(2))
+      setSl((bid - slOffset).toFixed(2))
+      setTp((bid + tpOffset).toFixed(2))
     } else {
-      setSl((bid + slP * 0.01).toFixed(2))
-      setTp((bid - tpP * 0.01).toFixed(2))
+      setSl((bid + slOffset).toFixed(2))
+      setTp((bid - tpOffset).toFixed(2))
     }
-  }, [direction, bid, slPts, tpPts])
+  }, [direction, bid, slOffset, tpOffset])
+
+  // 实时回传图表需要显示的 SL/TP 线
+  useEffect(() => {
+    if (disabled || !currentPrice) {
+      onLevelsChange(null)
+      return
+    }
+    const slV = parseFloat(sl)
+    const tpV = parseFloat(tp)
+    if (isNaN(slV) || isNaN(tpV)) {
+      onLevelsChange(null)
+      return
+    }
+    onLevelsChange({ sl: slV, tp: tpV })
+  }, [sl, tp, disabled, currentPrice, onLevelsChange])
 
   function handleSubmit() {
     setError('')
@@ -67,13 +94,23 @@ export default function TradePanel({
 
     // 前端预校验（后端也会校验，这里给用户即时反馈）
     if (direction === 'Buy') {
-      const entry = ask
-      if (slV >= entry) { setError(`多单止损必须低于 Ask(${entry.toFixed(2)})`); return }
-      if (tpV <= entry) { setError(`多单止盈必须高于 Ask(${entry.toFixed(2)})`); return }
+      if (slV > bid - MIN_PROTECT_DISTANCE) {
+        setError(`多单止损必须 <= 当前价(${bid.toFixed(2)}) - ${MIN_PROTECT_DISTANCE}`)
+        return
+      }
+      if (tpV < bid + MIN_PROTECT_DISTANCE) {
+        setError(`多单止盈必须 >= 当前价(${bid.toFixed(2)}) + ${MIN_PROTECT_DISTANCE}`)
+        return
+      }
     } else {
-      const entry = bid
-      if (slV <= entry) { setError(`空单止损必须高于 Bid(${entry.toFixed(2)})`); return }
-      if (tpV >= entry) { setError(`空单止盈必须低于 Bid(${entry.toFixed(2)})`); return }
+      if (slV < bid + MIN_PROTECT_DISTANCE) {
+        setError(`空单止损必须 >= 当前价(${bid.toFixed(2)}) + ${MIN_PROTECT_DISTANCE}`)
+        return
+      }
+      if (tpV > bid - MIN_PROTECT_DISTANCE) {
+        setError(`空单止盈必须 <= 当前价(${bid.toFixed(2)}) - ${MIN_PROTECT_DISTANCE}`)
+        return
+      }
     }
 
     onOrder(direction, lot, slV, tpV)
@@ -148,29 +185,49 @@ export default function TradePanel({
           <div className="text-[#8b949e] mt-0.5">≈ {(lot * 100).toFixed(0)} 盎司</div>
         </div>
 
-        {/* 快捷点数设置 */}
+        {/* 快捷偏移设置 */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[#8b949e] block mb-1">止损（点数）</label>
-            <input
-              type="number"
-              min="1"
-              value={slPts}
-              onChange={e => setSlPts(e.target.value)}
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[#ef5350] font-mono
-                         focus:outline-none focus:border-[#ef5350]"
-            />
+            <label className="text-[#8b949e] block mb-1">止损偏移</label>
+            <div className="grid grid-cols-4 gap-1">
+              {OFFSET_OPTIONS.map(v => (
+                <button
+                  key={`sl-${v}`}
+                  type="button"
+                  onClick={() => setSlOffset(v)}
+                  className={`
+                    rounded border px-1 py-1 text-[11px] font-mono
+                    ${slOffset === v
+                      ? 'border-[#ef5350] bg-[#ef5350]/20 text-[#ef5350]'
+                      : 'border-[#30363d] text-[#8b949e] hover:border-[#ef5350]/50 hover:text-[#ef5350]'
+                    }
+                  `}
+                >
+                  -{v}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
-            <label className="text-[#8b949e] block mb-1">止盈（点数）</label>
-            <input
-              type="number"
-              min="1"
-              value={tpPts}
-              onChange={e => setTpPts(e.target.value)}
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[#26a69a] font-mono
-                         focus:outline-none focus:border-[#26a69a]"
-            />
+            <label className="text-[#8b949e] block mb-1">止盈偏移</label>
+            <div className="grid grid-cols-4 gap-1">
+              {OFFSET_OPTIONS.map(v => (
+                <button
+                  key={`tp-${v}`}
+                  type="button"
+                  onClick={() => setTpOffset(v)}
+                  className={`
+                    rounded border px-1 py-1 text-[11px] font-mono
+                    ${tpOffset === v
+                      ? 'border-[#26a69a] bg-[#26a69a]/20 text-[#26a69a]'
+                      : 'border-[#30363d] text-[#8b949e] hover:border-[#26a69a]/50 hover:text-[#26a69a]'
+                    }
+                  `}
+                >
+                  +{v}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

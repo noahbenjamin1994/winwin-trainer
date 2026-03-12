@@ -9,7 +9,7 @@ interface Props {
 const REASON_LABEL: Record<string, string> = {
   tp:          '止盈',
   sl:          '止损',
-  margin_call: '爆仓',
+  stop_out:    '强平',
   data_end:    '数据末尾',
 }
 
@@ -91,7 +91,7 @@ export default function TradeHistory({ trades }: Props) {
                       px-1.5 py-0.5 rounded text-[10px] font-bold
                       ${t.close_reason === 'tp'          ? 'bg-[#26a69a]/20 text-[#26a69a]' : ''}
                       ${t.close_reason === 'sl'          ? 'bg-[#ef5350]/20 text-[#ef5350]' : ''}
-                      ${t.close_reason === 'margin_call' ? 'bg-red-900/40 text-red-400'      : ''}
+                      ${t.close_reason === 'stop_out'    ? 'bg-red-900/40 text-red-400'      : ''}
                       ${t.close_reason === 'data_end'    ? 'bg-gray-700/40 text-gray-400'    : ''}
                     `}>
                       {REASON_LABEL[t.close_reason] ?? t.close_reason}

@@ -44,7 +44,7 @@ export interface TradeRecord {
   sl: number
   tp: number
   pnl: number
-  close_reason: 'sl' | 'tp' | 'margin_call' | 'data_end'
+  close_reason: 'sl' | 'tp' | 'stop_out' | 'data_end'
 }
 
 /** 下单请求 */
@@ -70,6 +70,8 @@ export interface OrderResponse {
 export interface StepResponse {
   current_time: string
   new_bars: OHLCBar[]
+  game_over: boolean
+  game_over_reason: string
   current_price: PriceTick
 }
 
