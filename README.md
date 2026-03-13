@@ -2,18 +2,23 @@
 
 ![XAUUSD Trainer Banner](assets/readme-banner.jpg)
 
+<div align="center">
+
+🌐 <strong>Languages</strong>: English + auto-translated via zdoc.app<br/>
+[中文](https://www.zdoc.app/zh/noahbenjamin1994/winwin-trainer) ·
+[日本語](https://www.zdoc.app/ja/noahbenjamin1994/winwin-trainer) ·
+[한국어](https://www.zdoc.app/ko/noahbenjamin1994/winwin-trainer) ·
+[Español](https://www.zdoc.app/es/noahbenjamin1994/winwin-trainer) ·
+[Français](https://www.zdoc.app/fr/noahbenjamin1994/winwin-trainer) ·
+[Deutsch](https://www.zdoc.app/de/noahbenjamin1994/winwin-trainer) ·
+[Русский](https://www.zdoc.app/ru/noahbenjamin1994/winwin-trainer) ·
+[Português](https://www.zdoc.app/pt/noahbenjamin1994/winwin-trainer) ·
+[العربية](https://www.zdoc.app/ar/noahbenjamin1994/winwin-trainer)
+
+</div>
+
 A replay-based **XAUUSD trading simulator** built for one thing: train execution and risk control without leaking future candles.
 
-- 🌐 Languages: English + auto-translated entries via zdoc.app
-  [中文](https://www.zdoc.app/zh/noahbenjamin1994/winwin-trainer) |
-  [日本語](https://www.zdoc.app/ja/noahbenjamin1994/winwin-trainer) |
-  [한국어](https://www.zdoc.app/ko/noahbenjamin1994/winwin-trainer) |
-  [Español](https://www.zdoc.app/es/noahbenjamin1994/winwin-trainer) |
-  [Français](https://www.zdoc.app/fr/noahbenjamin1994/winwin-trainer) |
-  [Deutsch](https://www.zdoc.app/de/noahbenjamin1994/winwin-trainer) |
-  [Русский](https://www.zdoc.app/ru/noahbenjamin1994/winwin-trainer) |
-  [Português](https://www.zdoc.app/pt/noahbenjamin1994/winwin-trainer) |
-  [العربية](https://www.zdoc.app/ar/noahbenjamin1994/winwin-trainer)
 - 🧠 Focus: discipline, anti-cheat replay, risk awareness
 - 🛠 Stack: FastAPI + Next.js + lightweight-charts
 
