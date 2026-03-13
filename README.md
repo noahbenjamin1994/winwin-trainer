@@ -4,7 +4,7 @@
 
 <div align="center">
 
-🌐 <strong>Languages</strong>: English + auto-translated via zdoc.app<br/>
+🌐 <strong>Languages</strong><br/>
 [中文](https://www.zdoc.app/zh/noahbenjamin1994/winwin-trainer) ·
 [日本語](https://www.zdoc.app/ja/noahbenjamin1994/winwin-trainer) ·
 [한국어](https://www.zdoc.app/ko/noahbenjamin1994/winwin-trainer) ·
