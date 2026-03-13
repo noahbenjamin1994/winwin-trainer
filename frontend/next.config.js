@@ -1,11 +1,13 @@
 /** @type {import('next').NextConfig} */
+const backendBase = (process.env.BACKEND_API_BASE || 'http://localhost:8000').replace(/\/$/, '')
+
 const nextConfig = {
-  // 允许前端直接代理到本地后端（开发环境）
+  // 生产环境通过 BACKEND_API_BASE 指向后端；本地默认 localhost:8000
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
+        destination: `${backendBase}/api/:path*`,
       },
     ]
   },

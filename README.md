@@ -61,12 +61,15 @@ npm run dev
 
 前端默认地址：`http://localhost:3000`
 
-前端会通过 `next.config.js` 将 `/api/*` 自动代理到 `http://localhost:8000/api/*`。
+前端会通过 `next.config.js` 将 `/api/*` 代理到后端：
+
+- 本地默认：`http://localhost:8000/api/*`
+- 生产环境：设置 `BACKEND_API_BASE`（例如 `https://api.your-domain.com`）
 
 首次登录说明：
 
 - 输入新用户名（3-24 位字母/数字/下划线）并提交，会自动创建账号
-- 系统会生成 6 位随机大小写+数字密码
+- 系统会生成 12 位随机大小写+数字密码
 - 请务必复制或截图保存，该密码用于后续唯一登录
 
 ## 5. 数据要求
@@ -132,7 +135,8 @@ Parquet 需要至少包含以下列：
 
 ## 9. 重要注意事项
 
-- 运行态 Session 保存在后端内存，服务重启后当前对局会失效
+- 登录 Token 有效期为 `90` 天，服务端仅保存 Token 哈希
+- Session 在内存中有缓存，若进程重启可从数据库恢复
 - 用户、交易、步进、操作日志会持久化到 `backend/trainer.db`
 - 当前 CORS 为 `allow_origins=["*"]`，仅建议本地训练使用
 - 本项目为训练工具，不构成投资建议

@@ -22,8 +22,9 @@ import secrets
 import sqlite3
 import string
 import hashlib
+import bcrypt
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import numpy as np
@@ -55,12 +56,14 @@ LEVERAGE: int = 100            # 杠杆比例
 MARGIN_REQUIRED_PER_LOT: float = 1000.0  # 金荣中国规则：伦敦金 1 手保证金 $1000
 MARGIN_CALL_RATIO_PCT: float = 100.0     # <=100% 追加保证金（当前系统仅用于判定，不单独通知）
 STOP_OUT_RATIO_PCT: float = 30.0         # <=30% 强平
+MIN_SLTP_DISTANCE_USD: float = 2.0       # SL/TP 距当前价的最小绝对距离
 
 DB_PATH = str(Path(__file__).resolve().parent / "trainer.db")
-auth_tokens: dict[str, dict[str, object]] = {}
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,24}$")
-PASSWORD_LEN = 6
+PASSWORD_LEN = 12
+BCRYPT_HASH_PREFIXES = ("$2a$", "$2b$", "$2y$")
+TOKEN_TTL_DAYS = 90
 
 # pandas resample 规则映射
 TIMEFRAME_RULES: dict[str, str] = {
@@ -155,20 +158,105 @@ def _init_db() -> None:
                 FOREIGN KEY(user_id) REFERENCES users(id)
             );
 
+            CREATE TABLE IF NOT EXISTS auth_tokens (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_trades_user_id ON trades(user_id);
             CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON game_sessions(user_id);
             CREATE INDEX IF NOT EXISTS idx_steps_user_id ON step_events(user_id);
+            CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
+            CREATE INDEX IF NOT EXISTS idx_auth_tokens_expires_at ON auth_tokens(expires_at);
             """
         )
 
 
-def _hash_password(password: str, salt: str) -> str:
-    return hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
+def _is_bcrypt_hash(password_hash: str) -> bool:
+    return password_hash.startswith(BCRYPT_HASH_PREFIXES)
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, password_hash: str, password_salt: str) -> bool:
+    # 新方案：bcrypt（盐已内嵌在哈希中）
+    if _is_bcrypt_hash(password_hash):
+        try:
+            return bcrypt.checkpw(
+                password.encode("utf-8"),
+                password_hash.encode("utf-8"),
+            )
+        except ValueError:
+            return False
+
+    # 旧方案兼容：sha256(salt:password)
+    legacy_hash = hashlib.sha256(f"{password_salt}:{password}".encode("utf-8")).hexdigest()
+    return secrets.compare_digest(legacy_hash, password_hash)
 
 
 def _generate_password(length: int = PASSWORD_LEN) -> str:
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _issue_auth_token(user_id: int) -> str:
+    token = secrets.token_urlsafe(32)
+    now = datetime.utcnow()
+    created_at = now.isoformat(timespec="seconds")
+    expires_at = (now + timedelta(days=TOKEN_TTL_DAYS)).isoformat(timespec="seconds")
+    token_hash = _hash_token(token)
+
+    with _db_conn() as conn:
+        conn.execute(
+            "DELETE FROM auth_tokens WHERE expires_at <= ?",
+            (created_at,),
+        )
+        conn.execute(
+            """
+            INSERT INTO auth_tokens (token_hash, user_id, created_at, expires_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (token_hash, user_id, created_at, expires_at),
+        )
+
+    return token
+
+
+def _lookup_user_by_token(token: str) -> Optional[dict[str, object]]:
+    token_hash = _hash_token(token)
+    now = _utc_now_iso()
+    with _db_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT t.user_id, u.username, t.expires_at
+            FROM auth_tokens t
+            JOIN users u ON u.id = t.user_id
+            WHERE t.token_hash = ?
+            """,
+            (token_hash,),
+        ).fetchone()
+        if row is None:
+            return None
+        if str(row["expires_at"]) <= now:
+            conn.execute(
+                "DELETE FROM auth_tokens WHERE token_hash = ?",
+                (token_hash,),
+            )
+            return None
+
+    return {
+        "user_id": int(row["user_id"]),
+        "username": str(row["username"]),
+    }
 
 
 def _validate_username(raw_username: str) -> str:
@@ -267,7 +355,7 @@ class GameSession:
         self.game_over: bool = False
         self.game_over_reason: str = ""
 
-# 内存中的 Session 字典（生产环境可替换为 Redis/SQLite）
+# Session 运行态缓存（缺失时可从数据库恢复）
 sessions: dict[str, GameSession] = {}
 
 # ─────────────────────────────────────────────────────────────
@@ -361,9 +449,10 @@ def _extract_token(authorization: Optional[str]) -> str:
 
 def _require_user(authorization: Optional[str]) -> dict[str, object]:
     token = _extract_token(authorization)
-    if token not in auth_tokens:
+    user = _lookup_user_by_token(token)
+    if user is None:
         raise HTTPException(401, "登录已失效，请重新登录")
-    return auth_tokens[token]
+    return user
 
 
 def _create_game_session_record(session: GameSession) -> None:
@@ -750,14 +839,13 @@ def auth_login(req: AuthLoginRequest):
         if row is None:
             created = True
             generated_password = _generate_password()
-            salt = secrets.token_hex(8)
-            pwd_hash = _hash_password(generated_password, salt)
+            pwd_hash = _hash_password(generated_password)
             cur = conn.execute(
                 """
                 INSERT INTO users (username, password_hash, password_salt, created_at, last_login_at)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                (username, pwd_hash, salt, now, now),
+                (username, pwd_hash, "bcrypt", now, now),
             )
             user_id = int(cur.lastrowid)
         else:
@@ -765,16 +853,27 @@ def auth_login(req: AuthLoginRequest):
                 raise HTTPException(400, "该用户名已存在，请输入密码")
             real_hash = str(row["password_hash"])
             salt = str(row["password_salt"])
-            if _hash_password(req.password, salt) != real_hash:
+            if not _verify_password(req.password, real_hash, salt):
                 raise HTTPException(401, "用户名或密码错误")
             user_id = int(row["id"])
-            conn.execute(
-                "UPDATE users SET last_login_at = ? WHERE id = ?",
-                (now, user_id),
-            )
+            if _is_bcrypt_hash(real_hash):
+                conn.execute(
+                    "UPDATE users SET last_login_at = ? WHERE id = ?",
+                    (now, user_id),
+                )
+            else:
+                # 老账号登录成功后，平滑升级为 bcrypt
+                upgraded_hash = _hash_password(req.password)
+                conn.execute(
+                    """
+                    UPDATE users
+                    SET password_hash = ?, password_salt = ?, last_login_at = ?
+                    WHERE id = ?
+                    """,
+                    (upgraded_hash, "bcrypt", now, user_id),
+                )
 
-    token = secrets.token_urlsafe(32)
-    auth_tokens[token] = {"user_id": user_id, "username": username}
+    token = _issue_auth_token(user_id)
 
     _log_operation(
         user_id=user_id,
@@ -1021,12 +1120,32 @@ def place_order(
     # ── 验证 SL/TP 合理性 ──
     bid = _get_bid_at(session.current_time)
     if req.direction == "Buy":
+        if req.sl > bid - MIN_SLTP_DISTANCE_USD:
+            raise HTTPException(
+                400,
+                f"多单止损必须 <= 当前价({bid:.2f}) - {MIN_SLTP_DISTANCE_USD:.2f}"
+            )
+        if req.tp < bid + MIN_SLTP_DISTANCE_USD:
+            raise HTTPException(
+                400,
+                f"多单止盈必须 >= 当前价({bid:.2f}) + {MIN_SLTP_DISTANCE_USD:.2f}"
+            )
         entry = bid + SPREAD
         if req.sl >= entry:
             raise HTTPException(400, f"多单止损({req.sl:.2f})必须低于入场价({entry:.2f})")
         if req.tp <= entry:
             raise HTTPException(400, f"多单止盈({req.tp:.2f})必须高于入场价({entry:.2f})")
     else:
+        if req.sl < bid + MIN_SLTP_DISTANCE_USD:
+            raise HTTPException(
+                400,
+                f"空单止损必须 >= 当前价({bid:.2f}) + {MIN_SLTP_DISTANCE_USD:.2f}"
+            )
+        if req.tp > bid - MIN_SLTP_DISTANCE_USD:
+            raise HTTPException(
+                400,
+                f"空单止盈必须 <= 当前价({bid:.2f}) - {MIN_SLTP_DISTANCE_USD:.2f}"
+            )
         entry = bid
         if req.sl <= entry:
             raise HTTPException(400, f"空单止损({req.sl:.2f})必须高于入场价({entry:.2f})")
@@ -1082,10 +1201,101 @@ def get_session_state(
 # 内部辅助函数
 # ─────────────────────────────────────────────────────────────
 
+def _load_trade_history_from_db(session_id: str) -> list[dict]:
+    with _db_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                trade_no,
+                direction,
+                lot_size,
+                entry_time,
+                close_time,
+                entry_price,
+                close_price,
+                sl,
+                tp,
+                pnl,
+                close_reason,
+                balance_before,
+                balance_after
+            FROM trades
+            WHERE session_id = ?
+            ORDER BY trade_no ASC, id ASC
+            """,
+            (session_id,),
+        ).fetchall()
+
+    history: list[dict] = []
+    for row in rows:
+        history.append(
+            {
+                "id": int(row["trade_no"]),
+                "direction": str(row["direction"]),
+                "lot_size": float(row["lot_size"]),
+                "entry_time": str(row["entry_time"]),
+                "close_time": str(row["close_time"]),
+                "entry_price": float(row["entry_price"]),
+                "close_price": float(row["close_price"]),
+                "sl": float(row["sl"]),
+                "tp": float(row["tp"]),
+                "pnl": float(row["pnl"]),
+                "close_reason": str(row["close_reason"]),
+                "balance_before": float(row["balance_before"]),
+                "balance_after": float(row["balance_after"]),
+            }
+        )
+    return history
+
+
+def _load_session_from_db(session_id: str) -> Optional[GameSession]:
+    with _db_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT
+                gs.session_id,
+                gs.user_id,
+                u.username,
+                gs.initial_balance,
+                gs.current_balance,
+                gs.start_time,
+                gs.current_time,
+                gs.trades_used,
+                gs.game_over,
+                gs.game_over_reason
+            FROM game_sessions gs
+            JOIN users u ON u.id = gs.user_id
+            WHERE gs.session_id = ?
+            """,
+            (session_id,),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    session = GameSession(
+        session_id=str(row["session_id"]),
+        user_id=int(row["user_id"]),
+        username=str(row["username"]),
+        initial_balance=float(row["initial_balance"]),
+        start_time=pd.Timestamp(str(row["start_time"])),
+    )
+    session.balance = float(row["current_balance"])
+    session.current_time = pd.Timestamp(str(row["current_time"]))
+    session.trades_used = int(row["trades_used"])
+    session.game_over = bool(int(row["game_over"]))
+    session.game_over_reason = str(row["game_over_reason"] or "")
+    session.trade_history = _load_trade_history_from_db(session_id)
+    return session
+
+
 def _require_session(session_id: str, user_id: Optional[int] = None) -> GameSession:
     """查找 Session，不存在则抛 404；user_id 不为空时校验归属"""
     if session_id not in sessions:
-        raise HTTPException(404, f"Session {session_id!r} 不存在或已过期")
+        session = _load_session_from_db(session_id)
+        if session is None:
+            raise HTTPException(404, f"Session {session_id!r} 不存在或已过期")
+        sessions[session_id] = session
     session = sessions[session_id]
     if user_id is not None and session.user_id != user_id:
         raise HTTPException(403, "无权访问该 Session")
