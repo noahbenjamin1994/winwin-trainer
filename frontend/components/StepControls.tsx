@@ -1,11 +1,14 @@
 'use client'
 
+import { type Lang, tr } from '@/lib/i18n'
+
 /**
- * 推演控制台
- * 点击按钮后，向后端请求步进，获取增量K线并更新图表
+ * Step control panel.
+ * Requests time-step updates from backend and applies incremental bars.
  */
 
 interface Props {
+  lang: Lang
   disabled: boolean
   loading: boolean
   onStep: (minutes: 1 | 5 | 15 | 60) => void
@@ -18,12 +21,12 @@ const STEPS: { label: string; minutes: 1 | 5 | 15 | 60 }[] = [
   { label: '+1H',  minutes: 60 },
 ]
 
-export default function StepControls({ disabled, loading, onStep }: Props) {
+export default function StepControls({ lang, disabled, loading, onStep }: Props) {
   return (
     <div className="shrink-0 border-t border-[#21262d] bg-[#161b22] px-3 py-2">
       <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
         <span className="w-full text-center text-[11px] text-[#8b949e] md:mr-2 md:w-auto md:text-xs">
-          时间推演
+          {tr(lang, 'stepForward')}
         </span>
         {STEPS.map(({ label, minutes }) => (
           <button

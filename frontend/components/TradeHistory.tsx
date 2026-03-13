@@ -1,16 +1,11 @@
 'use client'
 
 import type { TradeRecord } from '@/lib/types'
+import { type Lang, tr } from '@/lib/i18n'
 
 interface Props {
+  lang: Lang
   trades: TradeRecord[]
-}
-
-const REASON_LABEL: Record<string, string> = {
-  tp:          '止盈',
-  sl:          '止损',
-  stop_out:    '强平',
-  data_end:    '数据末尾',
 }
 
 function fmt(iso: string) {
@@ -24,47 +19,53 @@ function fmt(iso: string) {
   } catch { return iso }
 }
 
-export default function TradeHistory({ trades }: Props) {
+export default function TradeHistory({ lang, trades }: Props) {
   const totalPnl = trades.reduce((s, t) => s + t.pnl, 0)
+  const reasonLabel: Record<string, string> = {
+    tp: tr(lang, 'reasonTp'),
+    sl: tr(lang, 'reasonSl'),
+    stop_out: tr(lang, 'reasonStopOut'),
+    data_end: tr(lang, 'reasonDataEnd'),
+  }
 
   return (
     <div className="h-full flex flex-col bg-[#0d1117] border-t border-[#21262d]">
-      {/* 标题行 */}
+      
       <div className="flex items-center justify-between px-4 py-1.5 border-b border-[#21262d] bg-[#161b22] shrink-0">
         <span className="text-[#8b949e] text-xs font-bold uppercase tracking-wider">
-          交易记录 ({trades.length})
+          {tr(lang, 'tradeRecord', { count: trades.length })}
         </span>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] text-[#8b949e] sm:hidden">可左右滑动</span>
+          <span className="text-[10px] text-[#8b949e] sm:hidden">{tr(lang, 'swipeHint')}</span>
           {trades.length > 0 && (
             <span className={`text-xs font-mono font-bold ${totalPnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-              合计: {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
+              {tr(lang, 'total')}: {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
             </span>
           )}
         </div>
       </div>
 
-      {/* 表格 */}
+      
       <div className="flex-1 overflow-auto">
         {trades.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[#8b949e] text-xs">
-            尚无交易记录
+            {tr(lang, 'noTrades')}
           </div>
         ) : (
           <table className="min-w-[980px] w-full text-xs font-mono">
             <thead className="sticky top-0 bg-[#161b22]">
               <tr className="text-[#8b949e] border-b border-[#21262d]">
                 <th className="px-3 py-1.5 text-left">#</th>
-                <th className="px-3 py-1.5 text-left">方向</th>
-                <th className="px-3 py-1.5 text-right">手数</th>
-                <th className="px-3 py-1.5 text-right">开仓价</th>
-                <th className="px-3 py-1.5 text-right">平仓价</th>
-                <th className="px-3 py-1.5 text-right">止损</th>
-                <th className="px-3 py-1.5 text-right">止盈</th>
-                <th className="px-3 py-1.5 text-left">开仓时间</th>
-                <th className="px-3 py-1.5 text-left">平仓时间</th>
-                <th className="px-3 py-1.5 text-center">原因</th>
-                <th className="px-3 py-1.5 text-right">盈亏($)</th>
+                <th className="px-3 py-1.5 text-left">{tr(lang, 'direction')}</th>
+                <th className="px-3 py-1.5 text-right">{tr(lang, 'lotSize')}</th>
+                <th className="px-3 py-1.5 text-right">{tr(lang, 'entryPrice')}</th>
+                <th className="px-3 py-1.5 text-right">{tr(lang, 'closePrice')}</th>
+                <th className="px-3 py-1.5 text-right">{tr(lang, 'sl')}</th>
+                <th className="px-3 py-1.5 text-right">{tr(lang, 'tp')}</th>
+                <th className="px-3 py-1.5 text-left">{tr(lang, 'entryTime')}</th>
+                <th className="px-3 py-1.5 text-left">{tr(lang, 'closeTime')}</th>
+                <th className="px-3 py-1.5 text-center">{tr(lang, 'reason')}</th>
+                <th className="px-3 py-1.5 text-right">{tr(lang, 'pnlUsd')}</th>
               </tr>
             </thead>
             <tbody>
@@ -76,7 +77,7 @@ export default function TradeHistory({ trades }: Props) {
                   <td className="px-3 py-1.5 text-[#8b949e]">{t.id}</td>
                   <td className="px-3 py-1.5">
                     <span className={`font-bold ${t.direction === 'Buy' ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-                      {t.direction === 'Buy' ? '▲ 多' : '▼ 空'}
+                      {t.direction === 'Buy' ? tr(lang, 'long') : tr(lang, 'short')}
                     </span>
                   </td>
                   <td className="px-3 py-1.5 text-right text-white">{t.lot_size.toFixed(2)}</td>
@@ -94,7 +95,7 @@ export default function TradeHistory({ trades }: Props) {
                       ${t.close_reason === 'stop_out'    ? 'bg-red-900/40 text-red-400'      : ''}
                       ${t.close_reason === 'data_end'    ? 'bg-gray-700/40 text-gray-400'    : ''}
                     `}>
-                      {REASON_LABEL[t.close_reason] ?? t.close_reason}
+                      {reasonLabel[t.close_reason] ?? t.close_reason}
                     </span>
                   </td>
                   <td className={`px-3 py-1.5 text-right font-bold

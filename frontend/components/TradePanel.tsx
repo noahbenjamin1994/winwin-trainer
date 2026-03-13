@@ -1,20 +1,22 @@
 'use client'
 
 /**
- * 交易面板（右侧边栏）
- * 包含：买入/卖出方向选择、手数、止损/止盈输入、快捷计算、确认下单
+ * Trade panel (right sidebar).
+ * Includes side selection, lot size, SL/TP inputs, quick offsets, and submit.
  *
- * 价格体系说明：
- *   - 所有价格以 Bid 坐标输入（与图表K线一致）
- *   - 多单：SL < 当前Bid < TP
- *   - 空单：TP < 当前Bid < SL
- *   - 实际成交价：多单用Ask(Bid+0.20)，空单用Bid（由后端处理）
+ * Price model:
+ *   - All inputs use Bid coordinate (same as chart)
+ *   - Buy: SL < current Bid < TP
+ *   - Sell: TP < current Bid < SL
+ *   - Actual fill: Buy at Ask (Bid+0.20), Sell at Bid (handled by backend)
  */
 
 import { useState, useEffect } from 'react'
 import type { PriceTick } from '@/lib/types'
+import { type Lang, tr } from '@/lib/i18n'
 
 interface Props {
+  lang: Lang
   sessionId: string
   currentPrice: PriceTick | null
   resetToken: number
@@ -31,6 +33,7 @@ const OFFSET_OPTIONS = [2, 4, 8, 16]
 const MIN_PROTECT_DISTANCE = 2
 
 export default function TradePanel({
+  lang,
   sessionId,
   currentPrice,
   resetToken,
@@ -50,13 +53,13 @@ export default function TradePanel({
   const bid = currentPrice?.bid ?? 0
   const ask = currentPrice?.ask ?? (bid + SPREAD)
 
-  // 在步进/下单后恢复默认偏移
+
   useEffect(() => {
     setSlOffset(DEFAULT_SL_OFFSET)
     setTpOffset(DEFAULT_TP_OFFSET)
   }, [resetToken])
 
-  // 根据快捷偏移计算 SL/TP（价格单位）
+
   useEffect(() => {
     if (!bid) return
     if (direction === 'Buy') {
@@ -68,7 +71,7 @@ export default function TradePanel({
     }
   }, [direction, bid, slOffset, tpOffset])
 
-  // 实时回传图表需要显示的 SL/TP 线
+
   useEffect(() => {
     if (disabled || !currentPrice) {
       onLevelsChange(null)
@@ -89,26 +92,26 @@ export default function TradePanel({
     const slV = parseFloat(sl)
     const tpV = parseFloat(tp)
 
-    if (isNaN(lot) || lot < 0.01) { setError('手数最小 0.01'); return }
-    if (isNaN(slV) || isNaN(tpV)) { setError('止损/止盈价格无效'); return }
+    if (isNaN(lot) || lot < 0.01) { setError(tr(lang, 'minLotError')); return }
+    if (isNaN(slV) || isNaN(tpV)) { setError(tr(lang, 'invalidSlTp')); return }
 
-    // 前端预校验（后端也会校验，这里给用户即时反馈）
+
     if (direction === 'Buy') {
       if (slV > bid - MIN_PROTECT_DISTANCE) {
-        setError(`多单止损必须 <= 当前价(${bid.toFixed(2)}) - ${MIN_PROTECT_DISTANCE}`)
+        setError(tr(lang, 'buySlError', { bid: bid.toFixed(2), min: MIN_PROTECT_DISTANCE }))
         return
       }
       if (tpV < bid + MIN_PROTECT_DISTANCE) {
-        setError(`多单止盈必须 >= 当前价(${bid.toFixed(2)}) + ${MIN_PROTECT_DISTANCE}`)
+        setError(tr(lang, 'buyTpError', { bid: bid.toFixed(2), min: MIN_PROTECT_DISTANCE }))
         return
       }
     } else {
       if (slV < bid + MIN_PROTECT_DISTANCE) {
-        setError(`空单止损必须 >= 当前价(${bid.toFixed(2)}) + ${MIN_PROTECT_DISTANCE}`)
+        setError(tr(lang, 'sellSlError', { bid: bid.toFixed(2), min: MIN_PROTECT_DISTANCE }))
         return
       }
       if (tpV > bid - MIN_PROTECT_DISTANCE) {
-        setError(`空单止盈必须 <= 当前价(${bid.toFixed(2)}) - ${MIN_PROTECT_DISTANCE}`)
+        setError(tr(lang, 'sellTpError', { bid: bid.toFixed(2), min: MIN_PROTECT_DISTANCE }))
         return
       }
     }
@@ -116,7 +119,7 @@ export default function TradePanel({
     onOrder(direction, lot, slV, tpV)
   }
 
-  // 预估盈亏（简单计算，不含后端真实结算）
+
   const lot   = parseFloat(lotSize) || 0
   const slVal = parseFloat(sl) || 0
   const tpVal = parseFloat(tp) || 0
@@ -130,13 +133,13 @@ export default function TradePanel({
 
   return (
     <div className="flex h-full flex-col bg-[#161b22] text-xs lg:border-l lg:border-[#21262d]">
-      {/* 标题 */}
+      
       <div className="border-b border-[#21262d] px-4 py-2 font-bold uppercase tracking-wider text-[#8b949e]">
-        下单
+        {tr(lang, 'placeOrder')}
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
-        {/* 买入 / 卖出 方向 */}
+        
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setDirection('Buy')}
@@ -150,7 +153,7 @@ export default function TradePanel({
               ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
             `}
           >
-            ▲ 买入<br />
+            ▲ {tr(lang, 'buy')}<br />
             <span className="text-[10px] font-normal">{ask.toFixed(2)}</span>
           </button>
           <button
@@ -165,14 +168,14 @@ export default function TradePanel({
               ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
             `}
           >
-            ▼ 卖出<br />
+            ▼ {tr(lang, 'sell')}<br />
             <span className="text-[10px] font-normal">{bid.toFixed(2)}</span>
           </button>
         </div>
 
-        {/* 手数 */}
+        
         <div>
-          <label className="text-[#8b949e] block mb-1">手数（Lot）</label>
+          <label className="text-[#8b949e] block mb-1">{tr(lang, 'lotLabel')}</label>
           <input
             type="number"
             min="0.01"
@@ -182,13 +185,13 @@ export default function TradePanel({
             className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-white font-mono
                        focus:outline-none focus:border-[#f0b429]"
           />
-          <div className="text-[#8b949e] mt-0.5">≈ {(lot * 100).toFixed(0)} 盎司</div>
+          <div className="text-[#8b949e] mt-0.5">≈ {(lot * 100).toFixed(0)} {tr(lang, 'ounces')}</div>
         </div>
 
-        {/* 快捷偏移设置 */}
+        
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[#8b949e] block mb-1">止损偏移</label>
+            <label className="text-[#8b949e] block mb-1">{tr(lang, 'slOffset')}</label>
             <div className="grid grid-cols-4 gap-1">
               {OFFSET_OPTIONS.map(v => (
                 <button
@@ -209,7 +212,7 @@ export default function TradePanel({
             </div>
           </div>
           <div>
-            <label className="text-[#8b949e] block mb-1">止盈偏移</label>
+            <label className="text-[#8b949e] block mb-1">{tr(lang, 'tpOffset')}</label>
             <div className="grid grid-cols-4 gap-1">
               {OFFSET_OPTIONS.map(v => (
                 <button
@@ -231,10 +234,10 @@ export default function TradePanel({
           </div>
         </div>
 
-        {/* 精确价格 */}
+        
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[#8b949e] block mb-1">止损价</label>
+            <label className="text-[#8b949e] block mb-1">{tr(lang, 'slPrice')}</label>
             <input
               type="number"
               step="0.01"
@@ -245,7 +248,7 @@ export default function TradePanel({
             />
           </div>
           <div>
-            <label className="text-[#8b949e] block mb-1">止盈价</label>
+            <label className="text-[#8b949e] block mb-1">{tr(lang, 'tpPrice')}</label>
             <input
               type="number"
               step="0.01"
@@ -257,30 +260,30 @@ export default function TradePanel({
           </div>
         </div>
 
-        {/* 风险/回报 预估 */}
+        
         <div className="bg-[#0d1117] rounded p-2 space-y-1">
           <div className="flex justify-between">
-            <span className="text-[#8b949e]">风险</span>
+            <span className="text-[#8b949e]">{tr(lang, 'risk')}</span>
             <span className="text-[#ef5350] font-mono">-${riskUsd.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#8b949e]">回报</span>
+            <span className="text-[#8b949e]">{tr(lang, 'reward')}</span>
             <span className="text-[#26a69a] font-mono">+${rewardUsd.toFixed(2)}</span>
           </div>
           <div className="flex justify-between border-t border-[#21262d] pt-1">
-            <span className="text-[#8b949e]">盈亏比</span>
+            <span className="text-[#8b949e]">{tr(lang, 'rr')}</span>
             <span className="text-white font-mono font-bold">1 : {rr}</span>
           </div>
         </div>
 
-        {/* 错误提示 */}
+        
         {error && (
           <div className="bg-[#ef5350]/10 border border-[#ef5350]/30 rounded px-2 py-1.5 text-[#ef5350]">
             {error}
           </div>
         )}
 
-        {/* 确认下单 */}
+        
         <button
           onClick={handleSubmit}
           disabled={disabled || loading || !currentPrice}
@@ -293,13 +296,16 @@ export default function TradePanel({
           `}
         >
           {loading
-            ? '结算中…'
-            : `确认 ${direction === 'Buy' ? '买入' : '卖出'} @ ${direction === 'Buy' ? ask.toFixed(2) : bid.toFixed(2)}`
+            ? tr(lang, 'settling')
+            : tr(lang, 'confirmOrder', {
+                side: direction === 'Buy' ? tr(lang, 'buy') : tr(lang, 'sell'),
+                price: direction === 'Buy' ? ask.toFixed(2) : bid.toFixed(2),
+              })
           }
         </button>
       </div>
 
-      {/* 底部：sessionId 调试信息 */}
+      
       <div className="truncate border-t border-[#21262d] px-3 py-1.5 text-[10px] text-[#30363d]">
         {sessionId ? `SID: ${sessionId.slice(0, 8)}…` : '—'}
       </div>

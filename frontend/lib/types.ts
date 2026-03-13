@@ -1,30 +1,30 @@
 // ================================================================
-// 全局类型定义
+// Shared frontend type definitions
 // ================================================================
 
-/** 游戏 Session 状态 */
+/** Game session state */
 export interface GameSession {
   session_id: string
   initial_balance: number
   balance: number
-  current_time: string         // ISO 8601 格式
+  current_time: string
   trades_used: number
-  max_trades: number           // 固定 10
+  max_trades: number
   trade_history: TradeRecord[]
   game_over: boolean
   game_over_reason: string
   current_price: PriceTick
 }
 
-/** 当前价格（Bid/Ask） */
+/** Current market price (Bid/Ask) */
 export interface PriceTick {
   bid: number
   ask: number
 }
 
-/** lightweight-charts 需要的 K 线格式 */
+/** OHLC bar format used by lightweight-charts */
 export interface OHLCBar {
-  time: number   // Unix 时间戳（秒）
+  time: number
   open: number
   high: number
   low: number
@@ -32,7 +32,7 @@ export interface OHLCBar {
   volume: number
 }
 
-/** 已完成的交易记录 */
+/** Closed trade record */
 export interface TradeRecord {
   id: number
   direction: 'Buy' | 'Sell'
@@ -47,7 +47,7 @@ export interface TradeRecord {
   close_reason: 'sl' | 'tp' | 'stop_out' | 'data_end'
 }
 
-/** 下单请求 */
+/** Order request payload */
 export interface OrderRequest {
   session_id: string
   direction: 'Buy' | 'Sell'
@@ -56,7 +56,7 @@ export interface OrderRequest {
   tp: number
 }
 
-/** 下单响应 */
+/** Order response payload */
 export interface OrderResponse {
   trade: TradeRecord
   balance: number
@@ -66,7 +66,7 @@ export interface OrderResponse {
   game_over_reason: string
 }
 
-/** 步进响应 */
+/** Step response payload */
 export interface StepResponse {
   current_time: string
   new_bars: OHLCBar[]
@@ -75,7 +75,7 @@ export interface StepResponse {
   current_price: PriceTick
 }
 
-/** K 线查询响应 */
+/** K-line query response payload */
 export interface KlinesResponse {
   timeframe: string
   current_time: string

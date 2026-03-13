@@ -1,13 +1,10 @@
 'use client'
 
 /**
- * K 线图表组件（使用 TradingView Lightweight Charts v4）
- * ─────────────────────────────────────────────────────
- * 功能：
- *   1. 初始化时调用 setData() 加载全量历史K线
- *   2. 步进时调用 update() 平滑添加新K线（不重载）
- *   3. 切换周期时重新调用 setData() 加载新周期数据
- *   4. 成交量柱状图叠加在同一图表中
+ * K-line chart component (TradingView Lightweight Charts v4).
+ * - setData(): full load (initial / timeframe switch)
+ * - updateBars(): incremental update (time stepping)
+ * - Includes volume histogram overlay
  */
 
 import {
@@ -30,16 +27,17 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { OHLCBar, Timeframe } from '@/lib/types'
+import { type Lang, tr } from '@/lib/i18n'
 
-// ── 图表方法对外暴露接口 ──────────────────────────────────
 export interface ChartRef {
-  /** 全量设置 K 线数据（切换周期或初始加载时调用） */
+  /** Set full K-line dataset. */
   setData: (bars: OHLCBar[]) => void
-  /** 增量更新（步进时追加新K线） */
+  /** Incrementally update bars. */
   updateBars: (bars: OHLCBar[]) => void
 }
 
 interface Props {
+  lang: Lang
   timeframe: Timeframe
   orderLevels: { sl: number; tp: number } | null
   onTimeframeChange: (tf: Timeframe) => void
@@ -47,7 +45,6 @@ interface Props {
 
 const TIMEFRAMES: Timeframe[] = ['1M', '5M', '15M', '1H', '4H', '1D']
 
-// 将 OHLCBar 转成 lightweight-charts 所需格式
 function toCandle(bar: OHLCBar): CandlestickData {
   return {
     time:  bar.time as UTCTimestamp,
@@ -67,10 +64,10 @@ function toVolume(bar: OHLCBar): HistogramData {
 }
 
 const Chart = forwardRef<ChartRef, Props>(function Chart(
-  { timeframe, orderLevels, onTimeframeChange },
+  { lang, timeframe, orderLevels, onTimeframeChange },
   ref,
 ) {
-  // mounted 守卫：lightweight-charts 依赖 window/DOM，不能在 SSR 期间初始化
+
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
@@ -81,8 +78,8 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
   const slLineRef     = useRef<IPriceLine | null>(null)
   const tpLineRef     = useRef<IPriceLine | null>(null)
 
-  // ── 初始化图表（仅 mount 时执行一次）──────────────────
-  // 必须等 mounted=true 后才能初始化（依赖 DOM + window）
+
+
   useEffect(() => {
     if (!mounted || !containerRef.current) return
 
@@ -91,7 +88,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
         background: { color: '#0d1117' },
         textColor:  '#8b949e',
         fontSize:   11,
-        attributionLogo: false, // 使用自定义文字归因，避免图表内悬浮图标
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: '#21262d' },
@@ -100,7 +97,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: {
         borderColor: '#30363d',
-        scaleMargins: { top: 0.08, bottom: 0.25 },  // 为成交量留出底部空间
+        scaleMargins: { top: 0.08, bottom: 0.25 },
       },
       timeScale: {
         borderColor:  '#30363d',
@@ -112,7 +109,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
       height: containerRef.current.clientHeight,
     })
 
-    // 阳线/阴线K线序列
+
     const candleSeries = chart.addCandlestickSeries({
       upColor:     '#26a69a',
       downColor:   '#ef5350',
@@ -121,7 +118,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
       wickDownColor: '#ef5350',
     })
 
-    // 成交量柱状图（独立价格轴，叠加在底部20%）
+
     const volumeSeries = chart.addHistogramSeries({
       priceFormat:  { type: 'volume' },
       priceScaleId: 'volume',
@@ -134,7 +131,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
     candleRef.current = candleSeries
     volumeRef.current = volumeSeries
 
-    // 响应式尺寸调整
+
     const ro = new ResizeObserver(entries => {
       for (const entry of entries) {
         chart.applyOptions({
@@ -160,21 +157,21 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
       candleRef.current = null
       volumeRef.current = null
     }
-  }, [mounted])  // mounted 变为 true 时触发一次初始化
+  }, [mounted])
 
-  // ── 对外暴露方法 ─────────────────────────────────────
+
   const setData = useCallback((bars: OHLCBar[]) => {
     if (!candleRef.current || !volumeRef.current) return
     candleRef.current.setData(bars.map(toCandle))
     volumeRef.current.setData(bars.map(toVolume))
-    // 图表时间轴自动滚动到最右侧（最新K线）
+
     chartRef.current?.timeScale().scrollToRealTime()
   }, [])
 
   const updateBars = useCallback((bars: OHLCBar[]) => {
     if (!candleRef.current || !volumeRef.current || bars.length === 0) return
     for (const bar of bars) {
-      // update() 语义：若 time > 最后一根则追加，否则更新最后一根
+
       candleRef.current.update(toCandle(bar))
       volumeRef.current.update(toVolume(bar))
     }
@@ -183,7 +180,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
 
   useImperativeHandle(ref, () => ({ setData, updateBars }), [setData, updateBars])
 
-  // 更新 SL/TP 预览线（虚线）
+
   useEffect(() => {
     if (!candleRef.current) return
 
@@ -220,7 +217,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
 
   return (
     <div className="flex flex-col h-full">
-      {/* 周期切换栏 */}
+      
       <div className="flex items-center gap-1 overflow-x-auto border-b border-[#21262d] bg-[#161b22] px-3 py-1.5 shrink-0">
         {TIMEFRAMES.map(tf => (
           <button
@@ -237,7 +234,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
             {tf}
           </button>
         ))}
-        <span className="ml-auto shrink-0 text-[10px] text-[#8b949e]">XAUUSD · USD/盎司</span>
+        <span className="ml-auto shrink-0 text-[10px] text-[#8b949e]">{tr(lang, 'instrumentUnit')}</span>
         <a
           href="https://www.tradingview.com/"
           target="_blank"
@@ -248,11 +245,11 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
         </a>
       </div>
 
-      {/* 图表容器：flex-1 撑满剩余高度。未挂载时显示占位，避免 createChart 在 SSR 执行 */}
+      
       <div ref={containerRef} className="flex-1 w-full">
         {!mounted && (
           <div className="flex items-center justify-center h-full text-[#30363d] text-xs">
-            Loading chart…
+            {tr(lang, 'loadingChart')}
           </div>
         )}
       </div>

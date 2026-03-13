@@ -1,6 +1,6 @@
 /**
- * API 客户端
- * 封装所有与后端通信的函数，统一错误处理
+ * API client
+ * Wraps backend calls with consistent error handling.
  */
 
 import axios from 'axios'
@@ -17,36 +17,45 @@ import type {
   Timeframe,
   UserStats,
 } from './types'
+import { type Lang, translateBackendError } from './i18n'
 
 const http = axios.create({
-  baseURL: '',  // 使用 Next.js rewrites 代理到后端
+  baseURL: '',
   timeout: 30000,
 })
 
 let authToken: string | null = null
+let apiLang: Lang = 'zh'
 
 http.interceptors.request.use(config => {
   if (authToken) {
     config.headers = config.headers ?? {}
     config.headers.Authorization = `Bearer ${authToken}`
   }
+  config.headers = config.headers ?? {}
+  config.headers['Accept-Language'] = apiLang
   return config
 })
 
-/** 设置/清除登录 token */
+/** Set or clear auth token */
 export function setAuthToken(token: string | null) {
   authToken = token
 }
 
-/** 错误消息提取 */
-function extractError(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    return err.response?.data?.detail ?? err.message
-  }
-  return String(err)
+export function setApiLanguage(lang: Lang) {
+  apiLang = lang
 }
 
-/** 开始新游戏 */
+/** Extract and normalize API error message */
+function extractError(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const raw = String(err.response?.data?.detail ?? err.message)
+    return translateBackendError(raw, apiLang)
+  }
+  return translateBackendError(String(err), apiLang)
+}
+
+/** Start a new game */
 export async function startGame(initialBalance: number): Promise<GameSession> {
   try {
     const res = await http.post('/api/game/start', { initial_balance: initialBalance })
@@ -56,7 +65,7 @@ export async function startGame(initialBalance: number): Promise<GameSession> {
   }
 }
 
-/** 用户登录（不存在则自动创建并返回一次性密码） */
+/** Login (auto-register new username and return one-time password) */
 export async function login(username: string, password?: string): Promise<AuthLoginResponse> {
   try {
     const res = await http.post('/api/auth/login', {
@@ -69,7 +78,7 @@ export async function login(username: string, password?: string): Promise<AuthLo
   }
 }
 
-/** 校验当前 token */
+/** Verify current token */
 export async function me(): Promise<AuthMeResponse> {
   try {
     const res = await http.get('/api/auth/me')
@@ -79,7 +88,7 @@ export async function me(): Promise<AuthMeResponse> {
   }
 }
 
-/** 当前用户统计 */
+/** Current user statistics */
 export async function getMyStats(): Promise<UserStats> {
   try {
     const res = await http.get('/api/stats/me')
@@ -89,7 +98,7 @@ export async function getMyStats(): Promise<UserStats> {
   }
 }
 
-/** 世界排行榜 */
+/** Global leaderboard */
 export async function getLeaderboard(
   sortBy: LeaderboardSort,
   limit = 20,
@@ -104,7 +113,7 @@ export async function getLeaderboard(
   }
 }
 
-/** 获取 K 线数据（防作弊：严格截止 current_time） */
+/** Fetch K-lines (anti-cheat: strictly up to current_time) */
 export async function getKlines(
   sessionId: string,
   timeframe: Timeframe,
@@ -120,7 +129,7 @@ export async function getKlines(
   }
 }
 
-/** 时间步进推演 */
+/** Step time forward */
 export async function stepGame(
   sessionId: string,
   stepMinutes: 1 | 5 | 15 | 60,
@@ -136,7 +145,7 @@ export async function stepGame(
   }
 }
 
-/** 下单（触发后端快进结算） */
+/** Place order (triggers backend fast-forward settlement) */
 export async function placeOrder(req: OrderRequest): Promise<OrderResponse> {
   try {
     const res = await http.post('/api/trade/order', req)
@@ -146,7 +155,7 @@ export async function placeOrder(req: OrderRequest): Promise<OrderResponse> {
   }
 }
 
-/** 获取 Session 完整状态 */
+/** Get full session state */
 export async function getSession(sessionId: string): Promise<GameSession> {
   try {
     const res = await http.get(`/api/game/session/${sessionId}`)

@@ -1,47 +1,49 @@
-# XAUUSD 盘感训练系统
+# XAUUSD Trainer
 
-基于历史 `XAUUSD 1M` 数据的交易训练项目，前后端分离：
+A historical `XAUUSD 1M` trading training project with a separated frontend/backend stack:
 
-- 后端：`FastAPI`（游戏状态、K线接口、下单快进结算）
-- 前端：`Next.js + lightweight-charts`（图表与训练交互）
+- Backend: `FastAPI` (game state, anti-cheat market data, fast-forward settlement)
+- Frontend: `Next.js + lightweight-charts` (charting and training interaction)
 
-目标：在不泄露未来数据的前提下，训练交易执行与风控习惯。
+Goal: train execution and risk-control discipline without exposing future market data.
 
-## 1. 功能概览
+## 1. Features
 
-- 随机历史时间点开局，每局最多 `10` 次开仓
-- 支持时间推演：`+1M / +5M / +15M / +1H`
-- 支持周期切换：`1M / 5M / 15M / 1H / 4H / 1D`
-- 用户名+密码登录；新用户名自动注册并生成一次性初始密码
-- 下单后后端自动快进，直到 `SL / TP / stop_out / 数据末尾`
-- 时间推演到数据末尾会自动结束当前局（`data_end`）
-- 固定点差、合约规格一致化，盈亏计算可复现
-- 交易历史、个人胜率/夏普/累计盈利、世界排行榜实时展示
+- Random historical start point per game, up to `10` trades per session
+- Time stepping: `+1M / +5M / +15M / +1H`
+- Timeframe switch: `1M / 5M / 15M / 1H / 4H / 1D`
+- Username + password auth; new usernames auto-register with a one-time generated password
+- Orders are settled by backend fast-forward until `SL / TP / stop_out / data_end`
+- Stepping to the end of available data ends the current game (`data_end`)
+- Fixed spread and consistent contract rules for reproducible PnL
+- Persistent trade history, personal metrics (win rate / Sharpe / total PnL), and global leaderboard
+- Frontend i18n: Chinese/English switch
 
-## 2. 项目结构
+## 2. Project Structure
 
 ```text
 xauusd_trainer/
 ├── backend/
-│   ├── main.py            # FastAPI 服务与核心撮合/结算逻辑
-│   ├── trainer.db         # SQLite 数据库（自动创建）
-│   └── requirements.txt   # Python 依赖
-└── frontend/
-    ├── app/               # Next.js 页面
-    ├── components/        # 图表、下单面板、推演控制、统计弹窗
-    ├── lib/               # API 客户端与类型定义
-    └── next.config.js     # /api 代理到后端:8000
+│   ├── main.py            # FastAPI service and settlement logic
+│   ├── trainer.db         # SQLite database (auto-created)
+│   └── requirements.txt   # Python dependencies
+├── frontend/
+│   ├── app/               # Next.js app routes/pages
+│   ├── components/        # Chart, order panel, controls, stats views
+│   ├── lib/               # API client, types, i18n
+│   └── next.config.js     # /api proxy config
+└── README.zh.md           # Chinese documentation
 ```
 
-## 3. 环境要求
+## 3. Requirements
 
 - Python `3.10+`
-- Node.js `18+`（建议 `20+`）
+- Node.js `18+` (recommended `20+`)
 - npm `9+`
 
-## 4. 快速开始
+## 4. Quick Start
 
-### 4.1 启动后端
+### 4.1 Start Backend
 
 ```bash
 cd backend
@@ -49,9 +51,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-后端默认监听：`http://localhost:8000`
+Backend default URL: `http://localhost:8000`
 
-### 4.2 启动前端
+### 4.2 Start Frontend
 
 ```bash
 cd frontend
@@ -59,91 +61,118 @@ npm install
 npm run dev
 ```
 
-前端默认地址：`http://localhost:3000`
+Frontend default URL: `http://localhost:3000`
 
-前端会通过 `next.config.js` 将 `/api/*` 代理到后端：
+`next.config.js` proxies `/api/*` to backend:
 
-- 本地默认：`http://localhost:8000/api/*`
-- 生产环境：设置 `BACKEND_API_BASE`（例如 `https://api.your-domain.com`）
+- Local default: `http://localhost:8000/api/*`
+- Production: set `BACKEND_API_BASE` (for example `https://api.your-domain.com`)
 
-首次登录说明：
+## 5. Authentication Notes
 
-- 输入新用户名（3-24 位字母/数字/下划线）并提交，会自动创建账号
-- 系统会生成 12 位随机大小写+数字密码
-- 请务必复制或截图保存，该密码用于后续唯一登录
+- Submit a new username (3-24 chars, letters/numbers/underscore) to auto-create an account
+- System generates a 12-character random password (letters + numbers)
+- Save the generated password immediately (copy/screenshot)
+- Auth token is hashed on server side and expires in `90` days
 
-## 5. 数据要求
+## 6. Data Requirement
 
-后端启动时会加载：
+Backend loads:
 
 `~/data/workspace/finance/data_history/XAUUSD_1M.parquet`
 
-如果你的数据路径不同，请修改 `backend/main.py` 中 `DATA_PATH`。
+If your path differs, update `DATA_PATH` in `backend/main.py`.
 
-Parquet 需要至少包含以下列：
+Parquet must include at least:
 
-- `time`（可转 datetime）
+- `time` (convertible to datetime)
 - `open`
 - `high`
 - `low`
 - `close`
 - `tick_volume`
 
-## 6. 交易规则（与代码一致）
+## 7. Trading Rules (Implemented)
 
-- 品种：`XAUUSD`
-- 合约大小：`1手 = 100盎司`
-- 固定点差：`$0.20`（20 points）
-- 杠杆展示：`1:100`
-- 最小手数：`0.01`
-- 初始本金下限：`$10`
-- 每局最多交易次数：`10`
+- Symbol: `XAUUSD`
+- Contract size: `1 lot = 100 oz`
+- Fixed spread: `$0.20` (20 points)
+- Display leverage: `1:100`
+- Minimum lot: `0.01`
+- Minimum initial balance: `$10`
+- Max trades per game: `10`
 
-保证金与强平机制（按金荣中国规则）：
+Margin & stop-out model (based on Jinrong China public rules used in this project):
 
-- 保证金：伦敦金 `1手 = $1000`，因此 `0.01手 = $10`
-- 开仓校验：`余额 >= 本单占用保证金` 才允许下单
-- 保证金比例：`净值 / 占用保证金 × 100%`
-- 强平条件：保证金比例 `<= 30%` 时触发 `stop_out` 并平仓
+- Margin for gold: `1 lot = $1000`, so `0.01 lot = $10`
+- Entry check: `balance >= required margin`
+- Margin ratio: `equity / used margin * 100%`
+- Stop-out trigger: `<= 30%`
 
-价格坐标说明：
+Price coordinate:
 
-- 图表/K线价格是 `Bid`
+- Chart/K-line uses `Bid`
 - `Ask = Bid + 0.20`
-- 多单开仓按 `Ask`，空单开仓按 `Bid`
-- 前端输入 `SL/TP` 使用 `Bid` 坐标系
+- Buy entry uses `Ask`, Sell entry uses `Bid`
+- Frontend `SL/TP` input uses `Bid` coordinate
 
-## 7. 防作弊设计
+## 8. Anti-Cheat Design
 
-- 每个 Session 维护一个 `current_time`（玩家当前可见时间边界）
-- K 线接口严格返回 `<= current_time` 的数据，不返回未来 K 线
-- 时间推演只返回本次新增 1M K 线
-- 前端展示时间隐藏年份，降低“按年份猜趋势”的信息泄露
-- 随机起点会保留前后安全缓冲：前 `5000` 根、后 `10000` 根 1M K 线
+- Every session maintains `current_time` as the visible boundary
+- K-line API strictly returns data `<= current_time`
+- Step API returns incremental 1M bars only
+- Random start uses safe buffers: first `5000`, last `10000` 1M bars excluded
 
-## 8. API 概览
+## 9. API Overview
 
-- `POST /api/auth/login`：登录（新用户自动注册并返回初始密码）
-- `GET /api/auth/me`：校验登录状态
-- `GET /api/stats/me`：当前用户统计（胜率/夏普/累计盈利）
-- `GET /api/leaderboard`：世界排行榜（支持按胜率/夏普/盈利排序）
-- `POST /api/game/start`：创建新局，随机起点
-- `GET /api/market/klines`：获取指定周期 K 线（防作弊边界）
-- `POST /api/game/step`：时间推演
-- `POST /api/trade/order`：下单并快进结算
-- `GET /api/game/session/{session_id}`：读取当前局完整状态
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/stats/me`
+- `GET /api/leaderboard`
+- `POST /api/game/start`
+- `GET /api/market/klines`
+- `POST /api/game/step`
+- `POST /api/trade/order`
+- `GET /api/game/session/{session_id}`
 
-## 9. 重要注意事项
+## 10. Important Notes
 
-- 登录 Token 有效期为 `90` 天，服务端仅保存 Token 哈希
-- Session 在内存中有缓存，若进程重启可从数据库恢复
-- 用户、交易、步进、操作日志会持久化到 `backend/trainer.db`
-- 当前 CORS 为 `allow_origins=["*"]`，仅建议本地训练使用
-- 本项目为训练工具，不构成投资建议
+- Session state is cached in memory and recoverable from DB on cache miss/restart
+- Users, sessions, trades, steps, and operation logs persist in `backend/trainer.db`
+- Current CORS is `allow_origins=["*"]` and should be restricted for production
+- This project is a training simulator, not investment advice
 
-如果你要部署到生产环境，至少补齐：
+## 11. Production Checklist
 
-- 用户鉴权
-- 持久化 Session（Redis/DB）
-- CORS 白名单
-- 接口限流与审计日志
+At minimum, add:
+
+- Strict CORS allow-list
+- API rate limiting
+- Strong deployment/network boundary controls
+- Monitoring and audit strategy
+
+## 12. Personal Story
+
+I built this platform because of an experience in my own family.  
+My father has traded XAUUSD for a long time. He believes strongly in his method, and often says he can make a few hundred dollars a day.  
+But over a longer window, his cumulative loss was already more than $8,000.
+
+I was pulled into this market as well.  
+The beginning looked great. In just a few days, my account went from $3,000 to $9,000+, and it was easy to believe I had finally figured it out.  
+Then came the extreme move from January 29, 2026 to February 2, 2026. Gold dropped hard, most of the profit was erased, and the account came close to a margin call.
+
+After that, I had to face one fact:  
+the hardest part of trading is staying clear-headed over time.  
+So I built this platform.  
+I want it to pull people back from emotion into rules, and to train execution and risk control in a replayable environment.  
+I built it for my father first, and as a reminder for myself.
+
+## 13. Affiliate Disclosure
+
+I joined the Upway affiliate program.  
+If you are looking for a live/demo gold trading platform, you can use my referral link:
+
+https://login.jrjr.com/#/user/reg/tjsid=851345
+
+If you register via this link, I may receive an affiliate commission.  
+Thank you for supporting this project ❤️

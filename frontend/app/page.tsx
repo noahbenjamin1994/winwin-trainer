@@ -9,6 +9,7 @@ import TradePanel from '@/components/TradePanel'
 import TradeHistory from '@/components/TradeHistory'
 import GameOver from '@/components/GameOver'
 import * as api from '@/lib/api'
+import { type Lang, normalizeLang, tr } from '@/lib/i18n'
 import type {
   GameSession,
   LeaderboardRow,
@@ -19,6 +20,7 @@ import type {
 } from '@/lib/types'
 
 const AUTH_TOKEN_KEY = 'xauusd_trainer_token'
+const LANG_KEY = 'xauusd_trainer_lang'
 
 type AuthState = {
   username: string
@@ -27,14 +29,51 @@ type AuthState = {
 
 type OrderLevels = { sl: number; tp: number } | null
 
-function AuthScreen({ onAuthed }: { onAuthed: (auth: AuthState) => void }) {
+function LangSwitch({
+  lang,
+  onChange,
+}: {
+  lang: Lang
+  onChange: (next: Lang) => void
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-[#30363d] bg-[#0d1117]/90 p-1 text-[11px] shadow-[0_0_0_1px_rgba(240,180,41,0.08)]">
+      <button
+        className={`rounded-full px-2.5 py-0.5 transition-colors ${lang === 'zh' ? 'bg-[#f0b429] text-black font-bold' : 'text-[#8b949e] hover:text-white'}`}
+        onClick={() => onChange('zh')}
+      >
+        {tr(lang, 'langZh')}
+      </button>
+      <button
+        className={`rounded-full px-2.5 py-0.5 transition-colors ${lang === 'en' ? 'bg-[#f0b429] text-black font-bold' : 'text-[#8b949e] hover:text-white'}`}
+        onClick={() => onChange('en')}
+      >
+        {tr(lang, 'langEn')}
+      </button>
+    </div>
+  )
+}
+
+function AuthScreen({
+  lang,
+  onLangChange,
+  onAuthed,
+}: {
+  lang: Lang
+  onLangChange: (next: Lang) => void
+  onAuthed: (auth: AuthState) => void
+}) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [generatedPassword, setGeneratedPassword] = useState('')
   const [pendingAuth, setPendingAuth] = useState<AuthState | null>(null)
-  const [copyText, setCopyText] = useState('复制密码')
+  const [copyText, setCopyText] = useState(tr(lang, 'copyPassword'))
+
+  useEffect(() => {
+    setCopyText(tr(lang, 'copyPassword'))
+  }, [lang])
 
   async function handleSubmit() {
     setLoading(true)
@@ -59,87 +98,127 @@ function AuthScreen({ onAuthed }: { onAuthed: (auth: AuthState) => void }) {
     if (!generatedPassword) return
     try {
       await navigator.clipboard.writeText(generatedPassword)
-      setCopyText('已复制')
-      window.setTimeout(() => setCopyText('复制密码'), 1200)
+      setCopyText(tr(lang, 'copied'))
+      window.setTimeout(() => setCopyText(tr(lang, 'copyPassword')), 1200)
     } catch {
-      setCopyText('复制失败')
-      window.setTimeout(() => setCopyText('复制密码'), 1200)
+      setCopyText(tr(lang, 'copyFailed'))
+      window.setTimeout(() => setCopyText(tr(lang, 'copyPassword')), 1200)
     }
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-[#0d1117] px-4 py-6">
-      <div className="w-full max-w-md space-y-5 rounded-xl border border-[#30363d] bg-[#161b22] p-6">
-        <div className="text-center">
-          <div className="mb-1 text-3xl font-bold tracking-widest text-[#f0b429]">XAUUSD</div>
-          <div className="text-sm text-[#8b949e]">登录 / 注册</div>
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#0a0d12] px-4 py-6">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-24 top-[-120px] h-72 w-72 rounded-full bg-[#f0b429]/18 blur-3xl" />
+        <div className="absolute right-[-140px] top-[20%] h-80 w-80 rounded-full bg-[#26a69a]/16 blur-3xl" />
+        <div className="absolute bottom-[-140px] left-[30%] h-80 w-80 rounded-full bg-[#ef5350]/12 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-6xl overflow-hidden rounded-3xl border border-[#2b313d] bg-[#11161f]/85 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur">
+        <div className="grid lg:grid-cols-[1.25fr_0.95fr]">
+          <div className="hidden lg:flex lg:flex-col lg:justify-between lg:border-r lg:border-[#21262d] lg:bg-[radial-gradient(circle_at_20%_15%,rgba(240,180,41,0.16),rgba(17,22,31,0)_40%),linear-gradient(180deg,rgba(22,27,34,0.8),rgba(13,17,23,0.8))] lg:p-10">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.28em] text-[#8b949e]">Gold Trader Simulator</div>
+              <div className="mt-4 text-5xl font-bold tracking-[0.18em] text-[#f0b429]">XAUUSD</div>
+              <div className="mt-5 max-w-md text-sm leading-7 text-[#a8b3c2]">
+                Build market intuition with strict anti-cheat historical replay.
+                Every session starts at a random point. No future candles exposed.
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div className="rounded-xl border border-[#2f3642] bg-[#0d1117]/70 p-3">
+                <div className="font-mono text-lg font-bold text-[#f0b429]">10</div>
+                <div className="mt-0.5 text-[#8b949e]">Max Trades</div>
+              </div>
+              <div className="rounded-xl border border-[#2f3642] bg-[#0d1117]/70 p-3">
+                <div className="font-mono text-lg font-bold text-[#26a69a]">0.01</div>
+                <div className="mt-0.5 text-[#8b949e]">Min Lot</div>
+              </div>
+              <div className="rounded-xl border border-[#2f3642] bg-[#0d1117]/70 p-3">
+                <div className="font-mono text-lg font-bold text-[#ef5350]">$10</div>
+                <div className="mt-0.5 text-[#8b949e]">Min Balance</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 sm:p-8 lg:p-10">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold tracking-wide text-[#f0b429] lg:hidden">XAUUSD</div>
+                <div className="text-xs text-[#8b949e]">{tr(lang, 'authTitle')}</div>
+              </div>
+              <LangSwitch lang={lang} onChange={onLangChange} />
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs uppercase tracking-wider text-[#8b949e]">{tr(lang, 'username')}</label>
+                <input
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  className="w-full rounded-xl border border-[#343d4a] bg-[#0d1117]/90 px-3.5 py-3 text-sm text-white outline-none transition-colors focus:border-[#f0b429]"
+                  placeholder={tr(lang, 'usernamePlaceholder')}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs uppercase tracking-wider text-[#8b949e]">{tr(lang, 'password')}</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full rounded-xl border border-[#343d4a] bg-[#0d1117]/90 px-3.5 py-3 text-sm text-white outline-none transition-colors focus:border-[#f0b429]"
+                  placeholder={tr(lang, 'passwordPlaceholder')}
+                  onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-4 rounded-xl border border-[#ef5350]/30 bg-[#ef5350]/12 px-3 py-2 text-xs text-[#ef5350]">{error}</div>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="mt-5 w-full rounded-xl bg-[#f0b429] py-3 text-sm font-bold text-black transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? tr(lang, 'processing') : tr(lang, 'loginRegister')}
+            </button>
+
+            {generatedPassword && pendingAuth && (
+              <div className="mt-5 space-y-3 rounded-xl border border-[#26a69a]/50 bg-[#26a69a]/10 p-3">
+                <div className="text-xs text-[#8b949e]">
+                  {tr(lang, 'generatedPasswordHint')}
+                </div>
+                <div className="rounded-lg border border-[#2f3642] bg-[#0d1117] px-3 py-2 font-mono text-lg text-[#26a69a]">
+                  {generatedPassword}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={copyPassword}
+                    className="flex-1 rounded-lg border border-[#26a69a] py-2 text-xs text-[#26a69a] hover:bg-[#26a69a]/10"
+                  >
+                    {copyText}
+                  </button>
+                  <button
+                    onClick={() => onAuthed(pendingAuth)}
+                    className="flex-1 rounded-lg bg-[#26a69a] py-2 text-xs font-bold text-white hover:opacity-90"
+                  >
+                    {tr(lang, 'savedContinue')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs text-[#8b949e]">用户名</label>
-            <input
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              className="w-full rounded border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm text-white focus:border-[#f0b429] focus:outline-none"
-              placeholder="3-24 位字母/数字/下划线"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-[#8b949e]">密码（已有用户必填）</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full rounded border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm text-white focus:border-[#f0b429] focus:outline-none"
-              placeholder="新用户可留空自动生成"
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="rounded bg-[#ef5350]/10 px-3 py-2 text-xs text-[#ef5350]">{error}</div>
-        )}
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full rounded-lg bg-[#f0b429] py-3 text-sm font-bold text-black transition-colors hover:bg-[#f0b429]/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading ? '处理中…' : '登录 / 注册'}
-        </button>
-
-        {generatedPassword && pendingAuth && (
-          <div className="space-y-3 rounded border border-[#26a69a]/50 bg-[#26a69a]/10 p-3">
-            <div className="text-xs text-[#8b949e]">
-              已为新用户生成唯一登录密码，请立即保存（建议截图）。
-            </div>
-            <div className="rounded bg-[#0d1117] px-3 py-2 font-mono text-lg text-[#26a69a]">
-              {generatedPassword}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={copyPassword}
-                className="flex-1 rounded border border-[#26a69a] py-2 text-xs text-[#26a69a] hover:bg-[#26a69a]/10"
-              >
-                {copyText}
-              </button>
-              <button
-                onClick={() => onAuthed(pendingAuth)}
-                className="flex-1 rounded bg-[#26a69a] py-2 text-xs font-bold text-white hover:opacity-90"
-              >
-                我已保存，继续
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
 }
 
 function LobbyScreen({
+  lang,
+  onLangChange,
   username,
   stats,
   leaderboard,
@@ -150,6 +229,8 @@ function LobbyScreen({
   onLogout,
   onStart,
 }: {
+  lang: Lang
+  onLangChange: (next: Lang) => void
   username: string
   stats: UserStats | null
   leaderboard: LeaderboardRow[]
@@ -167,7 +248,7 @@ function LobbyScreen({
   async function handleStart() {
     const val = parseFloat(balance)
     if (isNaN(val) || val < 10) {
-      setError('最小初始本金 $10')
+      setError(tr(lang, 'minInitialBalance', { min: 10 }))
       return
     }
     setLoading(true)
@@ -181,26 +262,38 @@ function LobbyScreen({
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#0d1117] px-4 py-6">
-      <div className="mx-auto w-full max-w-6xl space-y-4">
-        <div className="flex items-center justify-between rounded-lg border border-[#30363d] bg-[#161b22] px-4 py-3">
-          <div>
-            <div className="text-base font-bold text-[#f0b429]">XAUUSD 训练大厅</div>
-            <div className="text-xs text-[#8b949e]">当前用户：{username}</div>
+    <div className="relative min-h-[100dvh] overflow-hidden bg-[#090d13] px-4 py-6">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-32 top-[-80px] h-72 w-72 rounded-full bg-[#f0b429]/15 blur-3xl" />
+        <div className="absolute right-[-120px] top-[10%] h-72 w-72 rounded-full bg-[#26a69a]/14 blur-3xl" />
+        <div className="absolute bottom-[-120px] left-[35%] h-80 w-80 rounded-full bg-[#1f6feb]/12 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto w-full max-w-7xl space-y-5">
+        <div className="rounded-2xl border border-[#2a313d] bg-[#121923]/90 p-4 shadow-[0_12px_48px_rgba(0,0,0,0.35)] backdrop-blur">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.22em] text-[#8b949e]">Trading Arena</div>
+              <div className="mt-1 text-xl font-bold text-[#f0b429]">{tr(lang, 'lobbyTitle')}</div>
+              <div className="mt-1 text-xs text-[#8b949e]">{tr(lang, 'currentUser', { username })}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <LangSwitch lang={lang} onChange={onLangChange} />
+              <button
+                onClick={onLogout}
+                className="rounded-lg border border-[#3a434f] px-3 py-1.5 text-xs text-[#8b949e] transition-colors hover:border-[#f0b429] hover:text-[#f0b429]"
+              >
+                {tr(lang, 'logout')}
+              </button>
+            </div>
           </div>
-          <button
-            onClick={onLogout}
-            className="rounded border border-[#30363d] px-3 py-1.5 text-xs text-[#8b949e] hover:border-[#f0b429] hover:text-[#f0b429]"
-          >
-            退出登录
-          </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
-          <div className="space-y-4 rounded-xl border border-[#30363d] bg-[#161b22] p-5">
-            <div className="text-sm font-bold text-white">开始新训练</div>
-            <div>
-              <label className="mb-1 block text-xs text-[#8b949e]">初始本金（USD）</label>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_1fr]">
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-[#2a313d] bg-[#121923]/90 p-5 shadow-[0_10px_36px_rgba(0,0,0,0.28)]">
+              <div className="mb-4 text-sm font-bold text-white">{tr(lang, 'startTraining')}</div>
+              <label className="mb-1.5 block text-[11px] uppercase tracking-wider text-[#8b949e]">{tr(lang, 'initialBalanceUsd')}</label>
               <input
                 type="number"
                 min="10"
@@ -208,125 +301,123 @@ function LobbyScreen({
                 value={balance}
                 onChange={e => setBalance(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleStart()}
-                className="w-full rounded border border-[#30363d] bg-[#0d1117] px-3 py-2.5 text-lg text-white focus:border-[#f0b429] focus:outline-none"
+                className="w-full rounded-xl border border-[#343d4a] bg-[#0d1117]/95 px-3.5 py-3 text-2xl text-white outline-none transition-colors focus:border-[#f0b429]"
               />
+
+              <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-[#8b949e]">
+                <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/70 px-2.5 py-2">{tr(lang, 'ruleMaxTrades')}</div>
+                <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/70 px-2.5 py-2">{tr(lang, 'ruleAutoResult')}</div>
+                <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/70 px-2.5 py-2">{tr(lang, 'ruleStopOut')}</div>
+              </div>
+
+              {error && (
+                <div className="mt-4 rounded-lg border border-[#ef5350]/30 bg-[#ef5350]/12 px-3 py-2 text-xs text-[#ef5350]">{error}</div>
+              )}
+
+              <button
+                onClick={handleStart}
+                disabled={loading}
+                className="mt-4 w-full rounded-xl bg-[#f0b429] py-3 text-sm font-bold text-black transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? tr(lang, 'initializing') : tr(lang, 'startNow')}
+              </button>
             </div>
 
-            <div className="space-y-0.5 text-xs text-[#8b949e]">
-              <div>• 每局最多 10 次开仓</div>
-              <div>• 下单后自动快进至结果</div>
-              <div>• 达到强平线会结束本局</div>
-            </div>
-
-            {error && (
-              <div className="rounded bg-[#ef5350]/10 px-3 py-2 text-xs text-[#ef5350]">{error}</div>
-            )}
-
-            <button
-              onClick={handleStart}
-              disabled={loading}
-              className="w-full rounded-lg bg-[#f0b429] py-3 text-sm font-bold text-black transition-colors hover:bg-[#f0b429]/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? '正在初始化…' : '开始训练'}
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
+            <div className="rounded-2xl border border-[#2a313d] bg-[#121923]/90 p-5 shadow-[0_10px_36px_rgba(0,0,0,0.28)]">
               <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-bold text-white">我的历史统计</div>
+                <div className="text-sm font-bold text-white">{tr(lang, 'myStats')}</div>
                 <button
                   onClick={onRefreshBoard}
-                  className="rounded border border-[#30363d] px-2 py-1 text-[11px] text-[#8b949e] hover:border-[#f0b429] hover:text-[#f0b429]"
+                  className="rounded-lg border border-[#3a434f] px-2.5 py-1 text-[11px] text-[#8b949e] transition-colors hover:border-[#f0b429] hover:text-[#f0b429]"
                 >
-                  刷新
+                  {tr(lang, 'refresh')}
                 </button>
               </div>
               {stats ? (
-                <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
-                  <div className="rounded bg-[#0d1117] p-2">
-                    <div className="text-[#8b949e]">总交易</div>
-                    <div className="font-mono font-bold text-white">{stats.total_trades}</div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/80 p-3">
+                    <div className="text-[#8b949e]">{tr(lang, 'statTotalTrades')}</div>
+                    <div className="mt-1 font-mono text-lg font-bold text-white">{stats.total_trades}</div>
                   </div>
-                  <div className="rounded bg-[#0d1117] p-2">
-                    <div className="text-[#8b949e]">胜率</div>
-                    <div className="font-mono font-bold text-[#26a69a]">{stats.win_rate.toFixed(2)}%</div>
+                  <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/80 p-3">
+                    <div className="text-[#8b949e]">{tr(lang, 'statWinRate')}</div>
+                    <div className="mt-1 font-mono text-lg font-bold text-[#26a69a]">{stats.win_rate.toFixed(2)}%</div>
                   </div>
-                  <div className="rounded bg-[#0d1117] p-2">
-                    <div className="text-[#8b949e]">夏普</div>
-                    <div className="font-mono font-bold text-white">{stats.sharpe.toFixed(4)}</div>
+                  <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/80 p-3">
+                    <div className="text-[#8b949e]">{tr(lang, 'statSharpe')}</div>
+                    <div className="mt-1 font-mono text-lg font-bold text-white">{stats.sharpe.toFixed(4)}</div>
                   </div>
-                  <div className="rounded bg-[#0d1117] p-2">
-                    <div className="text-[#8b949e]">历史盈利</div>
-                    <div className={`font-mono font-bold ${stats.total_pnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
+                  <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/80 p-3">
+                    <div className="text-[#8b949e]">{tr(lang, 'statPnl')}</div>
+                    <div className={`mt-1 font-mono text-lg font-bold ${stats.total_pnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
                       {stats.total_pnl >= 0 ? '+' : ''}{stats.total_pnl.toFixed(2)}
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-xs text-[#8b949e]">暂无统计数据</div>
+                <div className="text-xs text-[#8b949e]">{tr(lang, 'noStats')}</div>
               )}
             </div>
+          </div>
 
-            <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <div className="mr-2 text-sm font-bold text-white">世界排行榜</div>
-                {[
-                  { key: 'win_rate', label: '按胜率' },
-                  { key: 'sharpe', label: '按夏普' },
-                  { key: 'total_pnl', label: '按盈利' },
-                ].map(item => (
-                  <button
-                    key={item.key}
-                    onClick={() => onSortChange(item.key as LeaderboardSort)}
-                    className={`
-                      rounded px-2 py-1 text-[11px]
-                      ${leaderboardSort === item.key
-                        ? 'bg-[#f0b429] font-bold text-black'
-                        : 'bg-[#0d1117] text-[#8b949e] hover:text-white'
-                      }
-                    `}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+          <div className="rounded-2xl border border-[#2a313d] bg-[#121923]/90 p-5 shadow-[0_10px_36px_rgba(0,0,0,0.28)]">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <div className="mr-2 text-sm font-bold text-white">{tr(lang, 'leaderboard')}</div>
+              {[
+                { key: 'win_rate', label: tr(lang, 'sortByWinRate') },
+                { key: 'sharpe', label: tr(lang, 'sortBySharpe') },
+                { key: 'total_pnl', label: tr(lang, 'sortByPnl') },
+              ].map(item => (
+                <button
+                  key={item.key}
+                  onClick={() => onSortChange(item.key as LeaderboardSort)}
+                  className={`
+                    rounded-full px-3 py-1 text-[11px] transition-all
+                    ${leaderboardSort === item.key
+                      ? 'bg-[#f0b429] font-bold text-black'
+                      : 'border border-[#3a434f] text-[#8b949e] hover:text-white'
+                    }
+                  `}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
 
-              {loadingBoard ? (
-                <div className="text-xs text-[#8b949e]">加载中…</div>
-              ) : leaderboard.length === 0 ? (
-                <div className="text-xs text-[#8b949e]">暂无排行榜数据</div>
-              ) : (
-                <div className="overflow-auto">
-                  <table className="min-w-[620px] w-full text-xs font-mono">
-                    <thead>
-                      <tr className="border-b border-[#30363d] text-[#8b949e]">
-                        <th className="px-2 py-1 text-left">#</th>
-                        <th className="px-2 py-1 text-left">用户</th>
-                        <th className="px-2 py-1 text-right">胜率</th>
-                        <th className="px-2 py-1 text-right">夏普</th>
-                        <th className="px-2 py-1 text-right">历史盈利</th>
-                        <th className="px-2 py-1 text-right">总交易</th>
+            {loadingBoard ? (
+              <div className="text-xs text-[#8b949e]">{tr(lang, 'loading')}</div>
+            ) : leaderboard.length === 0 ? (
+              <div className="text-xs text-[#8b949e]">{tr(lang, 'noLeaderboard')}</div>
+            ) : (
+              <div className="overflow-auto rounded-xl border border-[#2f3642]">
+                <table className="min-w-[700px] w-full text-xs font-mono">
+                  <thead className="bg-[#0f141c]">
+                    <tr className="border-b border-[#30363d] text-[#8b949e]">
+                      <th className="px-3 py-2 text-left">#</th>
+                      <th className="px-3 py-2 text-left">{tr(lang, 'rankUser')}</th>
+                      <th className="px-3 py-2 text-right">{tr(lang, 'statWinRate')}</th>
+                      <th className="px-3 py-2 text-right">{tr(lang, 'statSharpe')}</th>
+                      <th className="px-3 py-2 text-right">{tr(lang, 'statPnl')}</th>
+                      <th className="px-3 py-2 text-right">{tr(lang, 'rankTotalTrades')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.map(row => (
+                      <tr key={`${row.rank}-${row.username}`} className="border-b border-[#21262d] transition-colors hover:bg-[#0d1117]">
+                        <td className="px-3 py-2 text-white">{row.rank}</td>
+                        <td className="px-3 py-2 text-white">{row.username}</td>
+                        <td className="px-3 py-2 text-right text-[#26a69a]">{row.win_rate.toFixed(2)}%</td>
+                        <td className="px-3 py-2 text-right text-white">{row.sharpe.toFixed(4)}</td>
+                        <td className={`px-3 py-2 text-right ${row.total_pnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
+                          {row.total_pnl >= 0 ? '+' : ''}{row.total_pnl.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-right text-white">{row.total_trades}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {leaderboard.map(row => (
-                        <tr key={`${row.rank}-${row.username}`} className="border-b border-[#21262d]">
-                          <td className="px-2 py-1 text-white">{row.rank}</td>
-                          <td className="px-2 py-1 text-white">{row.username}</td>
-                          <td className="px-2 py-1 text-right text-[#26a69a]">{row.win_rate.toFixed(2)}%</td>
-                          <td className="px-2 py-1 text-right text-white">{row.sharpe.toFixed(4)}</td>
-                          <td className={`px-2 py-1 text-right ${row.total_pnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-                            {row.total_pnl >= 0 ? '+' : ''}{row.total_pnl.toFixed(2)}
-                          </td>
-                          <td className="px-2 py-1 text-right text-white">{row.total_trades}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -335,6 +426,7 @@ function LobbyScreen({
 }
 
 export default function Home() {
+  const [lang, setLang] = useState<Lang>('zh')
   const [authLoading, setAuthLoading] = useState(true)
   const [auth, setAuth] = useState<AuthState | null>(null)
 
@@ -353,6 +445,23 @@ export default function Home() {
 
   const chartRef = useRef<ChartRef>(null)
 
+  const handleLangChange = useCallback((next: Lang) => {
+    setLang(next)
+    api.setApiLanguage(next)
+    window.localStorage.setItem(LANG_KEY, next)
+    document.documentElement.lang = next === 'en' ? 'en' : 'zh-CN'
+  }, [])
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(LANG_KEY)
+    const normalized = saved
+      ? normalizeLang(saved)
+      : normalizeLang(window.navigator.language)
+    setLang(normalized)
+    api.setApiLanguage(normalized)
+    document.documentElement.lang = normalized === 'en' ? 'en' : 'zh-CN'
+  }, [])
+
   const refreshDashboard = useCallback(async () => {
     if (!auth) return
     setDashboardLoading(true)
@@ -364,7 +473,7 @@ export default function Home() {
       setStats(myStats)
       setLeaderboard(board.rows)
     } catch {
-      // 静默失败，避免打断主流程
+
     } finally {
       setDashboardLoading(false)
     }
@@ -559,18 +668,20 @@ export default function Home() {
   if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0d1117] text-sm text-[#8b949e]">
-        正在检查登录状态…
+        {tr(lang, 'checkingLogin')}
       </div>
     )
   }
 
   if (!auth) {
-    return <AuthScreen onAuthed={handleAuthed} />
+    return <AuthScreen lang={lang} onLangChange={handleLangChange} onAuthed={handleAuthed} />
   }
 
   if (!session) {
     return (
       <LobbyScreen
+        lang={lang}
+        onLangChange={handleLangChange}
         username={auth.username}
         stats={stats}
         leaderboard={leaderboard}
@@ -586,18 +697,24 @@ export default function Home() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col overflow-y-auto bg-[#0d1117] md:h-screen md:overflow-hidden">
-      <Header session={session} currentPrice={currentPrice} />
+      <div className="shrink-0 bg-[#0d1117] px-3 pt-2 md:px-4">
+        <div className="flex justify-end">
+          <LangSwitch lang={lang} onChange={handleLangChange} />
+        </div>
+      </div>
+      <Header lang={lang} session={session} currentPrice={currentPrice} />
 
       {error && (
         <div className="border-b border-[#ef5350]/30 bg-[#ef5350]/10 px-4 py-1.5 text-xs text-[#ef5350]">
           ⚠ {error}
-          <button className="ml-3 underline" onClick={() => setError('')}>关闭</button>
+          <button className="ml-3 underline" onClick={() => setError('')}>{tr(lang, 'close')}</button>
         </div>
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         <div className="flex h-[46dvh] min-h-[300px] flex-col overflow-hidden lg:h-auto lg:flex-1">
           <Chart
+            lang={lang}
             ref={chartRef}
             timeframe={timeframe}
             orderLevels={orderLevels}
@@ -607,6 +724,7 @@ export default function Home() {
 
         <div className="w-full shrink-0 border-t border-[#21262d] lg:w-72 lg:border-l lg:border-t-0 lg:overflow-y-auto">
           <TradePanel
+            lang={lang}
             sessionId={session.session_id}
             currentPrice={currentPrice}
             resetToken={tradePanelResetToken}
@@ -619,17 +737,19 @@ export default function Home() {
       </div>
 
       <StepControls
+        lang={lang}
         disabled={session.game_over}
         loading={loading}
         onStep={handleStep}
       />
 
       <div className="h-56 shrink-0 lg:h-40">
-        <TradeHistory trades={session.trade_history} />
+        <TradeHistory lang={lang} trades={session.trade_history} />
       </div>
 
       {session.game_over && (
         <GameOver
+          lang={lang}
           reason={session.game_over_reason}
           initialBalance={session.initial_balance}
           finalBalance={session.balance}

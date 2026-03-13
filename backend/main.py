@@ -1,17 +1,7 @@
 """
-XAUUSD 黄金 CFD 盘感训练系统 —— FastAPI 后端
-================================================================
-合约规格：
-  - 品种：XAUUSD（黄金/美元）
-  - 合约大小：1手 = 100 盎司
-  - 固定点差：20 points = $0.20（Bid/Ask 之差）
-  - 最小手数：0.01 手，步进 0.01
-  - 杠杆：1:100（用于爆仓计算保证金）
-  - 每局游戏：最多 10 次开仓机会
-
-防作弊核心原则：
-  所有K线数据严格截止到 session 的 current_time，
-  绝对不返回未来数据。
+XAUUSD CFD training backend (FastAPI).
+Core anti-cheat rule:
+Only return market data up to each session's current_time boundary.
 """
 
 import os
@@ -23,19 +13,20 @@ import sqlite3
 import string
 import hashlib
 import bcrypt
+from contextvars import ContextVar
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-# ─────────────────────────────────────────────────────────────
-# 应用初始化
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# App initialization
+# ---------------------------------------------------------------------------
 app = FastAPI(title="XAUUSD Training System", version="1.0.0")
 
 app.add_middleware(
@@ -46,17 +37,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─────────────────────────────────────────────────────────────
-# 常量定义
-# ─────────────────────────────────────────────────────────────
-SPREAD: float = 0.20          # 固定点差 $0.20（20 points）
-CONTRACT_SIZE: int = 100       # 1手 = 100 盎司
-MAX_TRADES: int = 10           # 每局最多开仓次数
-LEVERAGE: int = 100            # 杠杆比例
-MARGIN_REQUIRED_PER_LOT: float = 1000.0  # 金荣中国规则：伦敦金 1 手保证金 $1000
-MARGIN_CALL_RATIO_PCT: float = 100.0     # <=100% 追加保证金（当前系统仅用于判定，不单独通知）
-STOP_OUT_RATIO_PCT: float = 30.0         # <=30% 强平
-MIN_SLTP_DISTANCE_USD: float = 2.0       # SL/TP 距当前价的最小绝对距离
+# ---------------------------------------------------------------------------
+# Core constants
+# ---------------------------------------------------------------------------
+SPREAD: float = 0.20
+CONTRACT_SIZE: int = 100
+MAX_TRADES: int = 10
+LEVERAGE: int = 100
+MARGIN_REQUIRED_PER_LOT: float = 1000.0
+MARGIN_CALL_RATIO_PCT: float = 100.0
+STOP_OUT_RATIO_PCT: float = 30.0
+MIN_SLTP_DISTANCE_USD: float = 2.0
 
 DB_PATH = str(Path(__file__).resolve().parent / "trainer.db")
 
@@ -65,7 +56,6 @@ PASSWORD_LEN = 12
 BCRYPT_HASH_PREFIXES = ("$2a$", "$2b$", "$2y$")
 TOKEN_TTL_DAYS = 90
 
-# pandas resample 规则映射
 TIMEFRAME_RULES: dict[str, str] = {
     "1M":  "1min",
     "5M":  "5min",
@@ -74,6 +64,148 @@ TIMEFRAME_RULES: dict[str, str] = {
     "4H":  "4h",
     "1D":  "1D",
 }
+
+_request_lang: ContextVar[str] = ContextVar("request_lang", default="en")
+
+_ERROR_MESSAGES: dict[str, dict[str, str]] = {
+    "username_invalid": {
+        "en": "Username must be 3-24 chars (letters/numbers/underscore)",
+        "zh": "用户名仅支持 3-24 位字母/数字/下划线",
+    },
+    "insufficient_history": {
+        "en": "Insufficient history: row count must be greater than {required}",
+        "zh": "历史数据不足：请确保数据行数大于 {required}",
+    },
+    "time_before_data_start": {
+        "en": "Timestamp {time} is earlier than dataset start time",
+        "zh": "时间 {time} 早于数据起始时间",
+    },
+    "auth_required": {
+        "en": "Please log in first",
+        "zh": "未登录，请先登录",
+    },
+    "auth_header_invalid": {
+        "en": "Invalid Authorization format, use Bearer token",
+        "zh": "Authorization 格式错误，需使用 Bearer Token",
+    },
+    "auth_expired": {
+        "en": "Login expired, please log in again",
+        "zh": "登录已失效，请重新登录",
+    },
+    "sort_by_invalid": {
+        "en": "sort_by only supports win_rate / sharpe / total_pnl",
+        "zh": "sort_by 只支持 win_rate / sharpe / total_pnl",
+    },
+    "data_end_no_fast_forward": {
+        "en": "Reached end of data, cannot fast-forward",
+        "zh": "数据已到末尾，无法继续快进",
+    },
+    "username_exists_password_required": {
+        "en": "Username exists, please enter password",
+        "zh": "该用户名已存在，请输入密码",
+    },
+    "invalid_credentials": {
+        "en": "Invalid username or password",
+        "zh": "用户名或密码错误",
+    },
+    "limit_out_of_range": {
+        "en": "limit must be between 1 and 200",
+        "zh": "limit 取值范围为 1-200",
+    },
+    "timeframe_unsupported": {
+        "en": "Unsupported timeframe: {timeframe}, available: {choices}",
+        "zh": "不支持的周期: {timeframe}，可选: {choices}",
+    },
+    "game_over_cannot_step": {
+        "en": "Game is over, cannot continue stepping",
+        "zh": "游戏已结束，无法继续推演",
+    },
+    "step_minutes_invalid": {
+        "en": "step_minutes only supports 1/5/15/60",
+        "zh": "step_minutes 只支持 1/5/15/60",
+    },
+    "game_over": {
+        "en": "Game is over",
+        "zh": "游戏已结束",
+    },
+    "trades_exhausted": {
+        "en": "All {max_trades} trade chances are used",
+        "zh": "已用完全部 {max_trades} 次交易机会",
+    },
+    "direction_invalid": {
+        "en": "direction must be Buy or Sell",
+        "zh": "direction 必须为 Buy 或 Sell",
+    },
+    "margin_insufficient": {
+        "en": "Insufficient margin: required ${required:.2f}, balance ${balance:.2f}",
+        "zh": "保证金不足：开仓需要 ${required:.2f}，当前余额 ${balance:.2f}",
+    },
+    "buy_sl_min_distance": {
+        "en": "Buy SL must be <= current price({bid:.2f}) - {dist:.2f}",
+        "zh": "多单止损必须 <= 当前价({bid:.2f}) - {dist:.2f}",
+    },
+    "buy_tp_min_distance": {
+        "en": "Buy TP must be >= current price({bid:.2f}) + {dist:.2f}",
+        "zh": "多单止盈必须 >= 当前价({bid:.2f}) + {dist:.2f}",
+    },
+    "buy_sl_below_entry": {
+        "en": "Buy SL({sl:.2f}) must be below entry({entry:.2f})",
+        "zh": "多单止损({sl:.2f})必须低于入场价({entry:.2f})",
+    },
+    "buy_tp_above_entry": {
+        "en": "Buy TP({tp:.2f}) must be above entry({entry:.2f})",
+        "zh": "多单止盈({tp:.2f})必须高于入场价({entry:.2f})",
+    },
+    "sell_sl_min_distance": {
+        "en": "Sell SL must be >= current price({bid:.2f}) + {dist:.2f}",
+        "zh": "空单止损必须 >= 当前价({bid:.2f}) + {dist:.2f}",
+    },
+    "sell_tp_min_distance": {
+        "en": "Sell TP must be <= current price({bid:.2f}) - {dist:.2f}",
+        "zh": "空单止盈必须 <= 当前价({bid:.2f}) - {dist:.2f}",
+    },
+    "sell_sl_above_entry": {
+        "en": "Sell SL({sl:.2f}) must be above entry({entry:.2f})",
+        "zh": "空单止损({sl:.2f})必须高于入场价({entry:.2f})",
+    },
+    "sell_tp_below_entry": {
+        "en": "Sell TP({tp:.2f}) must be below entry({entry:.2f})",
+        "zh": "空单止盈({tp:.2f})必须低于入场价({entry:.2f})",
+    },
+    "session_missing_or_expired": {
+        "en": "Session {session_id!r} does not exist or has expired",
+        "zh": "Session {session_id!r} 不存在或已过期",
+    },
+    "session_forbidden": {
+        "en": "No permission to access this session",
+        "zh": "无权访问该 Session",
+    },
+}
+
+
+def _normalize_lang(raw: Optional[str]) -> str:
+    if not raw:
+        return "en"
+    head = raw.split(",", 1)[0].strip().lower()
+    if head.startswith("zh"):
+        return "zh"
+    return "en"
+
+
+def _msg(key: str, **kwargs) -> str:
+    lang = _request_lang.get()
+    data = _ERROR_MESSAGES.get(key, {})
+    template = data.get(lang) or data.get("en") or key
+    return template.format(**kwargs)
+
+
+@app.middleware("http")
+async def _language_middleware(request: Request, call_next):
+    token = _request_lang.set(_normalize_lang(request.headers.get("accept-language")))
+    try:
+        return await call_next(request)
+    finally:
+        _request_lang.reset(token)
 
 
 def _utc_now_iso() -> str:
@@ -184,7 +316,7 @@ def _hash_password(password: str) -> str:
 
 
 def _verify_password(password: str, password_hash: str, password_salt: str) -> bool:
-    # 新方案：bcrypt（盐已内嵌在哈希中）
+
     if _is_bcrypt_hash(password_hash):
         try:
             return bcrypt.checkpw(
@@ -194,7 +326,7 @@ def _verify_password(password: str, password_hash: str, password_salt: str) -> b
         except ValueError:
             return False
 
-    # 旧方案兼容：sha256(salt:password)
+
     legacy_hash = hashlib.sha256(f"{password_salt}:{password}".encode("utf-8")).hexdigest()
     return secrets.compare_digest(legacy_hash, password_hash)
 
@@ -264,7 +396,7 @@ def _validate_username(raw_username: str) -> str:
     if not USERNAME_RE.fullmatch(username):
         raise HTTPException(
             400,
-            "用户名仅支持 3-24 位字母/数字/下划线",
+            _msg("username_invalid"),
         )
     return username
 
@@ -291,16 +423,15 @@ def _log_operation(
             ),
         )
 
-# ─────────────────────────────────────────────────────────────
-# 数据加载（服务启动时一次性加载到内存，驻留全程）
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Data loading (in-memory at startup)
+# ---------------------------------------------------------------------------
 DATA_PATH = os.path.expanduser(
     "~/data/workspace/finance/data_history/XAUUSD_1M.parquet"
 )
 
-print(f"[启动] 正在加载1分钟历史数据: {DATA_PATH}")
+print(f"[boot] Loading 1-minute history: {DATA_PATH}")
 _raw = pd.read_parquet(DATA_PATH)
-# 以 time 列作为 DatetimeIndex，便于切片和 resample
 df_1m: pd.DataFrame = (
     _raw[["time", "open", "high", "low", "close", "tick_volume"]]
     .copy()
@@ -309,12 +440,9 @@ df_1m: pd.DataFrame = (
     .set_index("time")
 )
 del _raw
-print(f"[启动] 数据加载完成：{len(df_1m):,} 行，"
-      f"时间范围 {df_1m.index.min()} → {df_1m.index.max()}")
+print(f"[boot] Data loaded: {len(df_1m):,} rows, "
+      f"range {df_1m.index.min()} -> {df_1m.index.max()}")
 
-# 预计算有效随机入场范围：
-#   - 前 5000 根：需要足够的历史K线供图表显示
-#   - 后 10000 根：需要足够的未来数据供快进结算（较原先提升 1 倍）
 HISTORY_BUFFER_BARS = 5000
 FUTURE_BUFFER_BARS = 10000
 
@@ -323,17 +451,16 @@ VALID_END_IDX = len(df_1m) - FUTURE_BUFFER_BARS
 
 if VALID_END_IDX <= VALID_START_IDX:
     raise RuntimeError(
-        "历史数据不足：请确保数据行数大于 "
-        f"{HISTORY_BUFFER_BARS + FUTURE_BUFFER_BARS}"
+        _msg("insufficient_history", required=HISTORY_BUFFER_BARS + FUTURE_BUFFER_BARS)
     )
 
 _init_db()
 
-# ─────────────────────────────────────────────────────────────
-# 游戏 Session 数据结构
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Session model
+# ---------------------------------------------------------------------------
 class GameSession:
-    """单个用户游戏会话，含完整游戏状态"""
+    """Single game session state for one user."""
 
     def __init__(
         self,
@@ -348,59 +475,58 @@ class GameSession:
         self.username = username
         self.balance: float = initial_balance
         self.initial_balance: float = initial_balance
-        # current_time：玩家当前"看到"的最新时间点（防作弊边界）
+
         self.current_time: pd.Timestamp = start_time
         self.trades_used: int = 0
         self.trade_history: list[dict] = []
         self.game_over: bool = False
         self.game_over_reason: str = ""
 
-# Session 运行态缓存（缺失时可从数据库恢复）
 sessions: dict[str, GameSession] = {}
 
-# ─────────────────────────────────────────────────────────────
-# Pydantic 请求模型
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Request models
+# ---------------------------------------------------------------------------
 class AuthLoginRequest(BaseModel):
-    username: str = Field(..., description="用户名，3-24 位字母/数字/下划线")
-    password: Optional[str] = Field(default=None, description="已有用户必须填写密码")
+    username: str = Field(..., description="Username: 3-24 chars (letters/numbers/underscore)")
+    password: Optional[str] = Field(default=None, description="Password is required for existing users")
 
 
 class StartGameRequest(BaseModel):
-    initial_balance: float = Field(default=10000.0, ge=10, description="初始本金（最小$10）")
+    initial_balance: float = Field(default=10000.0, ge=10, description="Initial balance (minimum $10)")
 
 class StepRequest(BaseModel):
     session_id: str
-    step_minutes: int = Field(..., description="步进分钟数：1/5/15/60")
+    step_minutes: int = Field(..., description="Step minutes: 1/5/15/60")
 
 class OrderRequest(BaseModel):
     session_id: str
-    direction: str = Field(..., description="交易方向：Buy 或 Sell")
-    lot_size: float = Field(..., ge=0.01, description="手数（最小0.01手）")
-    sl: float = Field(..., description="止损价格（Bid价格坐标系）")
-    tp: float = Field(..., description="止盈价格（Bid价格坐标系）")
+    direction: str = Field(..., description="Trade side: Buy or Sell")
+    lot_size: float = Field(..., ge=0.01, description="Lot size (minimum 0.01)")
+    sl: float = Field(..., description="Stop-loss price (Bid coordinate)")
+    tp: float = Field(..., description="Take-profit price (Bid coordinate)")
 
-# ─────────────────────────────────────────────────────────────
-# 核心工具函数
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Core utility functions
+# ---------------------------------------------------------------------------
 
 def _get_bid_at(current_time: pd.Timestamp) -> float:
-    """获取指定时间点的 Bid 价格（即图表收盘价）"""
+    """Get Bid price at a specific timestamp (chart close price)."""
     try:
         val = df_1m.loc[current_time, "close"]
         return float(val)  # type: ignore[arg-type]
     except KeyError:
-        # 找到最近的左侧数据行
+
         pos = int(df_1m.index.get_indexer([current_time], method="ffill")[0])
         if pos < 0:
-            raise ValueError(f"时间 {current_time} 早于数据起始时间")
+            raise ValueError(_msg("time_before_data_start", time=current_time))
         return float(df_1m.iloc[pos]["close"])
 
 
 def _build_bar(ts: pd.Timestamp, row: pd.Series) -> dict:
-    """将 DataFrame 行构造为前端图表所需的 Bar 格式"""
+    """Convert a DataFrame row into frontend bar payload."""
     return {
-        "time": int(ts.timestamp()),    # Unix 时间戳（秒）
+        "time": int(ts.timestamp()),
         "open":   round(float(row["open"]),         2),
         "high":   round(float(row["high"]),         2),
         "low":    round(float(row["low"]),          2),
@@ -411,28 +537,26 @@ def _build_bar(ts: pd.Timestamp, row: pd.Series) -> dict:
 
 def get_klines(current_time: pd.Timestamp, timeframe: str, limit: int = 300) -> list[dict]:
     """
-    防作弊 K 线生成函数
-    ─────────────────────────────────────────────
-    从 1M 原始数据动态 resample，严格只返回 current_time
-    之前（含）的数据。limit 控制最多返回多少根K线。
+    Anti-cheat kline builder.
+    Resamples from 1M base data and strictly returns bars <= current_time.
     """
     rule = TIMEFRAME_RULES.get(timeframe, "1min")
 
-    # 关键防作弊切片：loc[:current_time] 包含 current_time 这一行
+
     slice_df = df_1m.loc[:current_time]
     if slice_df.empty:
         return []
 
-    # 动态重采样：open=第一根, high=最大, low=最小, close=最后一根
+
     ohlcv = slice_df.resample(rule).agg(
         open=("open",        "first"),
         high=("high",        "max"),
         low=("low",          "min"),
         close=("close",      "last"),
         tick_volume=("tick_volume", "sum"),
-    ).dropna(subset=["open"])  # 删除无数据周期
+    ).dropna(subset=["open"])
 
-    # 只取最近 limit 根，避免一次传输过多数据
+
     ohlcv = ohlcv.tail(limit)
 
     return [_build_bar(ts, row) for ts, row in ohlcv.iterrows()]
@@ -440,10 +564,10 @@ def get_klines(current_time: pd.Timestamp, timeframe: str, limit: int = 300) -> 
 
 def _extract_token(authorization: Optional[str]) -> str:
     if not authorization:
-        raise HTTPException(401, "未登录，请先登录")
+        raise HTTPException(401, _msg("auth_required"))
     parts = authorization.strip().split(" ", 1)
     if len(parts) != 2 or parts[0].lower() != "bearer" or not parts[1]:
-        raise HTTPException(401, "Authorization 格式错误，需使用 Bearer Token")
+        raise HTTPException(401, _msg("auth_header_invalid"))
     return parts[1].strip()
 
 
@@ -451,7 +575,7 @@ def _require_user(authorization: Optional[str]) -> dict[str, object]:
     token = _extract_token(authorization)
     user = _lookup_user_by_token(token)
     if user is None:
-        raise HTTPException(401, "登录已失效，请重新登录")
+        raise HTTPException(401, _msg("auth_expired"))
     return user
 
 
@@ -614,7 +738,7 @@ def _compute_user_stats(user_id: int, username: str) -> dict:
 
 def _build_leaderboard(sort_by: str, limit: int) -> list[dict]:
     if sort_by not in {"win_rate", "sharpe", "total_pnl"}:
-        raise HTTPException(400, "sort_by 只支持 win_rate / sharpe / total_pnl")
+        raise HTTPException(400, _msg("sort_by_invalid"))
 
     with _db_conn() as conn:
         users = conn.execute(
@@ -641,9 +765,9 @@ def _build_leaderboard(sort_by: str, limit: int) -> list[dict]:
     return top_rows
 
 
-# ─────────────────────────────────────────────────────────────
-# 核心引擎：快进结算（Fast-Forward）
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Settlement engine
+# ---------------------------------------------------------------------------
 
 def fast_forward_order(
     session: GameSession,
@@ -653,118 +777,95 @@ def fast_forward_order(
     tp: float,
 ) -> dict:
     """
-    订单快进结算引擎
-    ─────────────────────────────────────────────
-    从 current_time 的下一分钟起，在 1M K 线上逐行遍历，
-    检查 SL/TP 触发或爆仓条件，直到平仓为止。
-
-    价格体系说明（MT5 惯例）：
-      - K 线价格（open/high/low/close）= Bid 价格
-      - Ask 价格 = Bid + SPREAD（$0.20）
-      - 做多(Buy)  开仓价 = Ask = Bid + SPREAD
-      - 做空(Sell) 开仓价 = Bid
-      - 所有 SL/TP 均以 Bid 价格坐标输入
-
-    SL/TP 触发逻辑：
-      做多：
-        - SL 触发：该分钟 Low（Bid）<= sl_price  → 以 sl_price 成交
-        - TP 触发：该分钟 High（Bid）>= tp_price → 以 tp_price 成交
-      做空：
-        - SL 触发：该分钟 High（Bid）+ SPREAD >= sl_price → 以 sl_price 成交
-        - TP 触发：该分钟 Low（Bid）+ SPREAD <= tp_price  → 以 tp_price 成交
-
-    强平逻辑（按保证金比例）：
-      保证金比例 = 净值 / 占用保证金 * 100%
-      当比例 <= 30% 时触发 stop_out 强平。
-
-    Returns:
-      包含交易结果的字典，供 API 直接返回
+    Fast-forward order settlement on 1M bars.
+    Starts from the minute after entry and scans until SL/TP/stop-out/data-end.
+    Uses Bid chart prices with Ask = Bid + SPREAD.
     """
     entry_time = session.current_time
     balance_before = session.balance
     bid_at_entry = _get_bid_at(entry_time)
 
-    # ── 计算入场价（含点差）──
-    if direction == "Buy":
-        entry_price = round(bid_at_entry + SPREAD, 2)  # Ask 价
-    else:
-        entry_price = round(bid_at_entry, 2)            # Bid 价
 
-    # 本笔持仓占用保证金（伦敦金：1手=$1000）
+    if direction == "Buy":
+        entry_price = round(bid_at_entry + SPREAD, 2)
+    else:
+        entry_price = round(bid_at_entry, 2)
+
+
     used_margin = lot_size * MARGIN_REQUIRED_PER_LOT
 
-    # ── 从下一分钟开始快进 ──
-    # iloc[1:] 跳过 entry_time 所在的行，从下一根K线开始检查
+
+
     future_df = df_1m.loc[entry_time:].iloc[1:]
 
     if future_df.empty:
-        raise HTTPException(status_code=400, detail="数据已到末尾，无法继续快进")
+        raise HTTPException(status_code=400, detail=_msg("data_end_no_fast_forward"))
 
     close_price: float = 0.0
-    close_time: pd.Timestamp = entry_time  # 默认值，下方会被覆盖
+    close_time: pd.Timestamp = entry_time
     close_reason: str = "data_end"
 
     for ts, bar in future_df.iterrows():
         low  = float(bar["low"])
         high = float(bar["high"])
 
-        # ──── 保证金强平检查（优先级最高）────
-        # 以当分钟最不利价格估算净值与保证金比例：
-        # 保证金比例 = 净值 / 占用保证金 * 100%
+
+
+
         if direction == "Buy":
-            worst_price = low                  # 多单最坏是价格跌到最低
+            worst_price = low
             worst_pnl = (worst_price - entry_price) * lot_size * CONTRACT_SIZE
         else:
-            worst_price = high + SPREAD        # 空单最坏是价格涨到最高（Ask）
+            worst_price = high + SPREAD
             worst_pnl = (entry_price - worst_price) * lot_size * CONTRACT_SIZE
 
         equity_worst = balance_before + worst_pnl
         margin_ratio = (equity_worst / used_margin) * 100.0
 
         if margin_ratio <= STOP_OUT_RATIO_PCT:
-            # 触发强平：以最坏价格平仓
+
             close_price = worst_price
             close_time  = ts
             close_reason = "stop_out"
             break
 
-        # ──── SL/TP 触发检查 ────
+
         if direction == "Buy":
-            # 多单：K线的 Low（Bid）触及止损
+
             if low <= sl:
                 close_price  = sl
                 close_time   = ts
                 close_reason = "sl"
                 break
-            # 多单：K线的 High（Bid）触及止盈
+
             if high >= tp:
                 close_price  = tp
                 close_time   = ts
                 close_reason = "tp"
                 break
         else:
-            # 空单：K线的 High + SPREAD（Ask）触及止损
+
             if high + SPREAD >= sl:
                 close_price  = sl
                 close_time   = ts
                 close_reason = "sl"
                 break
-            # 空单：K线的 Low + SPREAD（Ask）触及止盈
+
             if low + SPREAD <= tp:
                 close_price  = tp
                 close_time   = ts
                 close_reason = "tp"
                 break
 
-    # 数据耗尽未触发 SL/TP：以最后一根收盘价强制平仓（close_reason 已初始化为 "data_end"）
+
     if close_reason == "data_end":
         last_bar    = future_df.iloc[-1]
         close_price = float(last_bar["close"])
         close_time  = future_df.index[-1]  # type: ignore[assignment]
 
-    # ── 盈亏计算 ──
-    # 多单：(平仓Bid - 开仓Ask) * 手数 * 合约大小
-    # 空单：(开仓Bid - 平仓Ask) * 手数 * 合约大小
+
+
+
     if direction == "Buy":
         pnl = (close_price - entry_price) * lot_size * CONTRACT_SIZE
     else:
@@ -772,9 +873,9 @@ def fast_forward_order(
 
     pnl = round(pnl, 2)
 
-    # ── 更新 Session 状态 ──
+
     session.balance      = round(balance_before + pnl, 2)
-    session.current_time = close_time                    # 时间游标拨到平仓时间
+    session.current_time = close_time
     session.trades_used += 1
 
     trade_record = {
@@ -794,7 +895,7 @@ def fast_forward_order(
     }
     session.trade_history.append(trade_record)
 
-    # ── 检查游戏结束条件 ──
+
     if close_reason == "stop_out" or session.balance <= 0:
         session.game_over        = True
         session.game_over_reason = "stop_out"
@@ -815,9 +916,9 @@ def fast_forward_order(
     }
 
 
-# ─────────────────────────────────────────────────────────────
-# API 端点
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# API endpoints
+# ---------------------------------------------------------------------------
 
 @app.post("/api/auth/login")
 def auth_login(req: AuthLoginRequest):
@@ -850,11 +951,11 @@ def auth_login(req: AuthLoginRequest):
             user_id = int(cur.lastrowid)
         else:
             if not req.password:
-                raise HTTPException(400, "该用户名已存在，请输入密码")
+                raise HTTPException(400, _msg("username_exists_password_required"))
             real_hash = str(row["password_hash"])
             salt = str(row["password_salt"])
             if not _verify_password(req.password, real_hash, salt):
-                raise HTTPException(401, "用户名或密码错误")
+                raise HTTPException(401, _msg("invalid_credentials"))
             user_id = int(row["id"])
             if _is_bcrypt_hash(real_hash):
                 conn.execute(
@@ -862,7 +963,7 @@ def auth_login(req: AuthLoginRequest):
                     (now, user_id),
                 )
             else:
-                # 老账号登录成功后，平滑升级为 bcrypt
+
                 upgraded_hash = _hash_password(req.password)
                 conn.execute(
                     """
@@ -913,7 +1014,7 @@ def leaderboard(
 ):
     _require_user(authorization)
     if limit < 1 or limit > 200:
-        raise HTTPException(400, "limit 取值范围为 1-200")
+        raise HTTPException(400, _msg("limit_out_of_range"))
     return {
         "sort_by": sort_by,
         "rows": _build_leaderboard(sort_by, limit),
@@ -925,17 +1026,12 @@ def start_game(
     req: StartGameRequest,
     authorization: Optional[str] = Header(default=None),
 ):
-    """
-    开始新游戏
-    ──────────
-    随机从历史数据中选取一个时间点作为游戏起始时间，
-    返回 session_id 供后续所有 API 使用。
-    """
+    """Start a new game from a random valid timestamp."""
     user = _require_user(authorization)
     user_id = int(user["user_id"])
     username = str(user["username"])
 
-    # 随机选取有效时间点（确保前后都有足够数据）
+
     random_idx = int(np.random.randint(VALID_START_IDX, VALID_END_IDX))
     start_time: pd.Timestamp = df_1m.index[random_idx]  # type: ignore[assignment]
 
@@ -982,18 +1078,15 @@ def get_market_klines(
     limit: int = 300,
     authorization: Optional[str] = Header(default=None),
 ):
-    """
-    获取历史 K 线数据（防作弊核心接口）
-    ────────────────────────────────────
-    严格只返回 session.current_time 之前（含）的 K 线，
-    绝对不泄露未来数据。支持动态 resample 多周期。
-    """
+    """Get historical K-lines for a session, strictly up to current_time."""
     user = _require_user(authorization)
     session = _require_session(session_id, int(user["user_id"]))
 
     if timeframe not in TIMEFRAME_RULES:
-        raise HTTPException(400, f"不支持的周期: {timeframe}，"
-                                 f"可选: {list(TIMEFRAME_RULES.keys())}")
+        raise HTTPException(
+            400,
+            _msg("timeframe_unsupported", timeframe=timeframe, choices=list(TIMEFRAME_RULES.keys())),
+        )
 
     klines = get_klines(session.current_time, timeframe, limit)
     bid = _get_bid_at(session.current_time)
@@ -1014,28 +1107,22 @@ def step_game(
     req: StepRequest,
     authorization: Optional[str] = Header(default=None),
 ):
-    """
-    时间推演（步进）
-    ─────────────────
-    将该 session 的 current_time 向前推进 step_minutes 分钟。
-    返回这段时间内新增的 1M K 线（增量数据），
-    供前端图表平滑 update 而无需重载全量数据。
-    """
+    """Advance session time and return incremental 1M bars."""
     user = _require_user(authorization)
     user_id = int(user["user_id"])
     session = _require_session(req.session_id, user_id)
 
     if session.game_over:
-        raise HTTPException(400, "游戏已结束，无法继续推演")
+        raise HTTPException(400, _msg("game_over_cannot_step"))
 
     if req.step_minutes not in (1, 5, 15, 60):
-        raise HTTPException(400, "step_minutes 只支持 1/5/15/60")
+        raise HTTPException(400, _msg("step_minutes_invalid"))
 
     from_time = session.current_time
     target_time: pd.Timestamp = session.current_time + pd.Timedelta(minutes=req.step_minutes)  # type: ignore[operator]
     max_time: pd.Timestamp = df_1m.index.max()  # type: ignore[assignment]
 
-    # 到达数据末尾视为正常结束，不再抛错
+
     if target_time >= max_time:
         new_time = max_time
         session.game_over = True
@@ -1043,7 +1130,7 @@ def step_game(
     else:
         new_time = target_time
 
-    # 获取本次步进新增的 1M K 线（排除当前时间那根，只取新增部分）
+
     step_df = df_1m.loc[session.current_time:new_time].iloc[1:]
     new_bars = [_build_bar(ts, row) for ts, row in step_df.iterrows()]
 
@@ -1088,69 +1175,62 @@ def place_order(
     req: OrderRequest,
     authorization: Optional[str] = Header(default=None),
 ):
-    """
-    下单并触发快进结算
-    ───────────────────
-    接收订单参数后，在后端 1M 数据上执行快进结算，
-    直到 SL/TP/强平触发为止，然后返回交易结果。
-    """
+    """Place an order and perform backend fast-forward settlement."""
     user = _require_user(authorization)
     user_id = int(user["user_id"])
     session = _require_session(req.session_id, user_id)
 
     if session.game_over:
-        raise HTTPException(400, "游戏已结束")
+        raise HTTPException(400, _msg("game_over"))
 
     if session.trades_used >= MAX_TRADES:
-        raise HTTPException(400, f"已用完全部 {MAX_TRADES} 次交易机会")
+        raise HTTPException(400, _msg("trades_exhausted", max_trades=MAX_TRADES))
 
     if req.direction not in ("Buy", "Sell"):
-        raise HTTPException(400, "direction 必须为 Buy 或 Sell")
+        raise HTTPException(400, _msg("direction_invalid"))
 
-    # ── 开仓保证金校验（1手=$1000）──
+
     required_margin = req.lot_size * MARGIN_REQUIRED_PER_LOT
     if session.balance < required_margin:
         raise HTTPException(
             400,
-            "保证金不足："
-            f"开仓需要 ${required_margin:.2f}，"
-            f"当前余额 ${session.balance:.2f}"
+            _msg("margin_insufficient", required=required_margin, balance=session.balance),
         )
 
-    # ── 验证 SL/TP 合理性 ──
+
     bid = _get_bid_at(session.current_time)
     if req.direction == "Buy":
         if req.sl > bid - MIN_SLTP_DISTANCE_USD:
             raise HTTPException(
                 400,
-                f"多单止损必须 <= 当前价({bid:.2f}) - {MIN_SLTP_DISTANCE_USD:.2f}"
+                _msg("buy_sl_min_distance", bid=bid, dist=MIN_SLTP_DISTANCE_USD),
             )
         if req.tp < bid + MIN_SLTP_DISTANCE_USD:
             raise HTTPException(
                 400,
-                f"多单止盈必须 >= 当前价({bid:.2f}) + {MIN_SLTP_DISTANCE_USD:.2f}"
+                _msg("buy_tp_min_distance", bid=bid, dist=MIN_SLTP_DISTANCE_USD),
             )
         entry = bid + SPREAD
         if req.sl >= entry:
-            raise HTTPException(400, f"多单止损({req.sl:.2f})必须低于入场价({entry:.2f})")
+            raise HTTPException(400, _msg("buy_sl_below_entry", sl=req.sl, entry=entry))
         if req.tp <= entry:
-            raise HTTPException(400, f"多单止盈({req.tp:.2f})必须高于入场价({entry:.2f})")
+            raise HTTPException(400, _msg("buy_tp_above_entry", tp=req.tp, entry=entry))
     else:
         if req.sl < bid + MIN_SLTP_DISTANCE_USD:
             raise HTTPException(
                 400,
-                f"空单止损必须 >= 当前价({bid:.2f}) + {MIN_SLTP_DISTANCE_USD:.2f}"
+                _msg("sell_sl_min_distance", bid=bid, dist=MIN_SLTP_DISTANCE_USD),
             )
         if req.tp > bid - MIN_SLTP_DISTANCE_USD:
             raise HTTPException(
                 400,
-                f"空单止盈必须 <= 当前价({bid:.2f}) - {MIN_SLTP_DISTANCE_USD:.2f}"
+                _msg("sell_tp_min_distance", bid=bid, dist=MIN_SLTP_DISTANCE_USD),
             )
         entry = bid
         if req.sl <= entry:
-            raise HTTPException(400, f"空单止损({req.sl:.2f})必须高于入场价({entry:.2f})")
+            raise HTTPException(400, _msg("sell_sl_above_entry", sl=req.sl, entry=entry))
         if req.tp >= entry:
-            raise HTTPException(400, f"空单止盈({req.tp:.2f})必须低于入场价({entry:.2f})")
+            raise HTTPException(400, _msg("sell_tp_below_entry", tp=req.tp, entry=entry))
 
     result = fast_forward_order(session, req.direction, req.lot_size, req.sl, req.tp)
     _insert_trade_record(session, result["trade"])
@@ -1175,7 +1255,7 @@ def get_session_state(
     session_id: str,
     authorization: Optional[str] = Header(default=None),
 ):
-    """获取当前游戏完整状态（含交易历史）"""
+    """Get full session state including trade history."""
     user = _require_user(authorization)
     session = _require_session(session_id, int(user["user_id"]))
     bid = _get_bid_at(session.current_time)
@@ -1197,9 +1277,9 @@ def get_session_state(
     }
 
 
-# ─────────────────────────────────────────────────────────────
-# 内部辅助函数
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 def _load_trade_history_from_db(session_id: str) -> list[dict]:
     with _db_conn() as conn:
@@ -1290,21 +1370,21 @@ def _load_session_from_db(session_id: str) -> Optional[GameSession]:
 
 
 def _require_session(session_id: str, user_id: Optional[int] = None) -> GameSession:
-    """查找 Session，不存在则抛 404；user_id 不为空时校验归属"""
+    """Get session by id; optionally validate ownership by user_id."""
     if session_id not in sessions:
         session = _load_session_from_db(session_id)
         if session is None:
-            raise HTTPException(404, f"Session {session_id!r} 不存在或已过期")
+            raise HTTPException(404, _msg("session_missing_or_expired", session_id=session_id))
         sessions[session_id] = session
     session = sessions[session_id]
     if user_id is not None and session.user_id != user_id:
-        raise HTTPException(403, "无权访问该 Session")
+        raise HTTPException(403, _msg("session_forbidden"))
     return session
 
 
-# ─────────────────────────────────────────────────────────────
-# 入口
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Entrypoint
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
