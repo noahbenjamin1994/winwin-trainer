@@ -48,6 +48,8 @@ MARGIN_REQUIRED_PER_LOT: float = 1000.0
 MARGIN_CALL_RATIO_PCT: float = 100.0
 STOP_OUT_RATIO_PCT: float = 30.0
 MIN_SLTP_DISTANCE_USD: float = 2.0
+MIN_INITIAL_BALANCE: float = 10.0
+MAX_INITIAL_BALANCE: float = 100000.0
 
 DB_PATH = os.path.expanduser(
     os.getenv("DB_PATH", str(Path(__file__).resolve().parent / "trainer.db"))
@@ -114,6 +116,10 @@ _ERROR_MESSAGES: dict[str, dict[str, str]] = {
     "limit_out_of_range": {
         "en": "limit must be between 1 and 200",
         "zh": "limit 取值范围为 1-200",
+    },
+    "initial_balance_out_of_range": {
+        "en": "initial_balance must be between {min} and {max}",
+        "zh": "初始本金必须在 {min} - {max} 之间",
     },
     "timeframe_unsupported": {
         "en": "Unsupported timeframe: {timeframe}, available: {choices}",
@@ -497,7 +503,10 @@ class AuthLoginRequest(BaseModel):
 
 
 class StartGameRequest(BaseModel):
-    initial_balance: float = Field(default=10000.0, ge=10, description="Initial balance (minimum $10)")
+    initial_balance: float = Field(
+        default=10000.0,
+        description="Initial balance range: $10 - $100000",
+    )
 
 class StepRequest(BaseModel):
     session_id: str
@@ -1031,6 +1040,16 @@ def start_game(
     authorization: Optional[str] = Header(default=None),
 ):
     """Start a new game from a random valid timestamp."""
+    if req.initial_balance < MIN_INITIAL_BALANCE or req.initial_balance > MAX_INITIAL_BALANCE:
+        raise HTTPException(
+            400,
+            _msg(
+                "initial_balance_out_of_range",
+                min=int(MIN_INITIAL_BALANCE),
+                max=int(MAX_INITIAL_BALANCE),
+            ),
+        )
+
     user = _require_user(authorization)
     user_id = int(user["user_id"])
     username = str(user["username"])

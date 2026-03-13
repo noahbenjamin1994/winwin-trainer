@@ -22,6 +22,8 @@ import type {
 
 const AUTH_TOKEN_KEY = 'xauusd_trainer_token'
 const LANG_KEY = 'xauusd_trainer_lang'
+const MIN_INITIAL_BALANCE = 10
+const MAX_INITIAL_BALANCE = 100000
 
 type AuthState = {
   username: string
@@ -302,8 +304,13 @@ function LobbyScreen({
 
   async function handleStart() {
     const val = parseFloat(balance)
-    if (isNaN(val) || val < 10) {
-      setError(tr(lang, 'minInitialBalance', { min: 10 }))
+    if (isNaN(val) || val < MIN_INITIAL_BALANCE || val > MAX_INITIAL_BALANCE) {
+      setError(
+        tr(lang, 'initialBalanceRange', {
+          min: MIN_INITIAL_BALANCE,
+          max: MAX_INITIAL_BALANCE,
+        }),
+      )
       return
     }
     setLoading(true)
@@ -351,7 +358,8 @@ function LobbyScreen({
               <label className="mb-1.5 block text-[11px] uppercase tracking-wider text-[#8b949e]">{tr(lang, 'initialBalanceUsd')}</label>
               <input
                 type="number"
-                min="10"
+                min={String(MIN_INITIAL_BALANCE)}
+                max={String(MAX_INITIAL_BALANCE)}
                 step="10"
                 value={balance}
                 onChange={e => setBalance(e.target.value)}

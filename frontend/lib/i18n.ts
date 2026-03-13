@@ -20,6 +20,7 @@ const MESSAGES = {
     copyFailed: '复制失败',
     savedContinue: '我已保存，继续',
     minInitialBalance: '最小初始本金 ${min}',
+    initialBalanceRange: '初始本金范围 ${min} - ${max}',
     lobbyTitle: 'XAUUSD 训练大厅',
     currentUser: '当前用户：{username}',
     logout: '退出登录',
@@ -127,6 +128,7 @@ const MESSAGES = {
     copyFailed: 'Copy Failed',
     savedContinue: 'Saved, Continue',
     minInitialBalance: 'Minimum initial balance is ${min}',
+    initialBalanceRange: 'Initial balance must be between ${min} and ${max}',
     lobbyTitle: 'XAUUSD Training Lobby',
     currentUser: 'User: {username}',
     logout: 'Log Out',
@@ -248,6 +250,7 @@ const BACKEND_ERROR_EXACT: Record<string, string> = {
   '用户名或密码错误': 'Invalid username or password',
   'sort_by 只支持 win_rate / sharpe / total_pnl': 'sort_by only supports win_rate / sharpe / total_pnl',
   'limit 取值范围为 1-200': 'limit must be between 1 and 200',
+  '初始本金必须在 10 - 100000 之间': 'initial_balance must be between 10 and 100000',
   '数据已到末尾，无法继续快进': 'Reached end of data, cannot fast-forward',
   '游戏已结束，无法继续推演': 'Game is over, cannot continue stepping',
   'step_minutes 只支持 1/5/15/60': 'step_minutes only supports 1/5/15/60',
@@ -309,6 +312,10 @@ const BACKEND_ERROR_RULES: ErrorRule[] = [
   {
     pattern: /^Session\s+(.+)\s+不存在或已过期$/,
     map: m => `Session ${m[1]} does not exist or has expired`,
+  },
+  {
+    pattern: /^初始本金必须在\s*(\d+)\s*-\s*(\d+)\s*之间$/,
+    map: m => `initial_balance must be between ${m[1]} and ${m[2]}`,
   },
 ]
 
