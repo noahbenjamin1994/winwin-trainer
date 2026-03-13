@@ -1,5 +1,7 @@
 # XAUUSD Trainer
 
+![XAUUSD Trainer Banner](assets/readme-banner.jpg)
+
 A historical `XAUUSD 1M` trading training project with a separated frontend/backend stack:
 
 - Backend: `FastAPI` (game state, anti-cheat market data, fast-forward settlement)

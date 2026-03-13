@@ -1,5 +1,7 @@
 # XAUUSD 盘感训练系统
 
+![XAUUSD Trainer Banner](assets/readme-banner.jpg)
+
 基于历史 `XAUUSD 1M` 数据的交易训练项目，前后端分离：
 
 - 后端：`FastAPI`（游戏状态、K线接口、下单快进结算）
