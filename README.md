@@ -43,10 +43,15 @@ A replay-based **XAUUSD trading simulator** built for one thing: train execution
 
 ```text
 xauusd_trainer/
+├── .env.example
+├── docker-compose.yml
 ├── backend/
+│   ├── Dockerfile
 │   ├── main.py
-│   ├── trainer.db
 │   └── requirements.txt
+├── deploy/
+│   └── data/
+│       └── XAUUSD_1M.parquet
 ├── frontend/
 │   ├── app/
 │   ├── components/
@@ -83,6 +88,17 @@ Frontend: `http://localhost:3000`
 
 - Local default: `http://localhost:8000/api/*`
 - Production: set `BACKEND_API_BASE` (example: `https://api.your-domain.com`)
+
+### 3) Backend (Docker Compose)
+
+```bash
+cp .env.example .env
+# ensure your 1-minute data file exists:
+# ./deploy/data/XAUUSD_1M.parquet
+docker compose up -d --build backend
+```
+
+If your data directory is elsewhere, set `HOST_DATA_DIR` in `.env` to an absolute path.
 
 ## 🔐 Authentication
 
@@ -136,7 +152,7 @@ Price coordinate:
 ## 📌 Important Notes
 
 - Session state is cached in memory and recoverable from DB on cache miss/restart
-- Users, sessions, trades, steps, and operation logs persist in `backend/trainer.db`
+- Users/sessions/trades/steps/logs persist in SQLite at `DB_PATH` (default `backend/trainer.db`, compose: `/app/data/trainer.db`)
 - CORS is currently permissive (`allow_origins=["*"]`) and should be restricted in production
 - This project is for training/research use only, not investment advice
 

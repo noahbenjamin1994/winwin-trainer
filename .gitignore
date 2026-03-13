@@ -9,6 +9,7 @@ venv/
 frontend/node_modules/
 frontend/.next/
 frontend/.env*.local
+.env
 
 # 数据文件（不提交 parquet，太大）
 data_history/

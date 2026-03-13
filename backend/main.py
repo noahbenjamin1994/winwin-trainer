@@ -49,12 +49,15 @@ MARGIN_CALL_RATIO_PCT: float = 100.0
 STOP_OUT_RATIO_PCT: float = 30.0
 MIN_SLTP_DISTANCE_USD: float = 2.0
 
-DB_PATH = str(Path(__file__).resolve().parent / "trainer.db")
+DB_PATH = os.path.expanduser(
+    os.getenv("DB_PATH", str(Path(__file__).resolve().parent / "trainer.db"))
+)
+Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,24}$")
 PASSWORD_LEN = 12
 BCRYPT_HASH_PREFIXES = ("$2a$", "$2b$", "$2y$")
-TOKEN_TTL_DAYS = 90
+TOKEN_TTL_DAYS = int(os.getenv("TOKEN_TTL_DAYS", "90"))
 
 TIMEFRAME_RULES: dict[str, str] = {
     "1M":  "1min",
@@ -427,9 +430,10 @@ def _log_operation(
 # Data loading (in-memory at startup)
 # ---------------------------------------------------------------------------
 DATA_PATH = os.path.expanduser(
-    "~/data/workspace/finance/data_history/XAUUSD_1M.parquet"
+    os.getenv("DATA_PATH", "~/data/workspace/finance/data_history/XAUUSD_1M.parquet")
 )
 
+print(f"[boot] Using sqlite db: {DB_PATH}")
 print(f"[boot] Loading 1-minute history: {DATA_PATH}")
 _raw = pd.read_parquet(DATA_PATH)
 df_1m: pd.DataFrame = (
@@ -1387,4 +1391,5 @@ def _require_session(session_id: str, user_id: Optional[int] = None) -> GameSess
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

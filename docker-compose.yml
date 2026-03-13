@@ -1,0 +1,15 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: xauusd-trainer-backend
+    restart: unless-stopped
+    environment:
+      PORT: "8000"
+      DB_PATH: /app/data/trainer.db
+      DATA_PATH: /app/data/XAUUSD_1M.parquet
+      TOKEN_TTL_DAYS: ${TOKEN_TTL_DAYS:-90}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ${HOST_DATA_DIR:-./deploy/data}:/app/data
