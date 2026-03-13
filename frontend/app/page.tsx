@@ -15,6 +15,7 @@ import type {
   LeaderboardRow,
   LeaderboardSort,
   PriceTick,
+  TradeRecord,
   Timeframe,
   UserStats,
 } from '@/lib/types'
@@ -28,6 +29,60 @@ type AuthState = {
 }
 
 type OrderLevels = { sl: number; tp: number } | null
+type OrderFlashTone = 'win' | 'loss' | 'flat'
+type OrderFlash = {
+  emoji: string
+  title: string
+  pnlText: string
+  reasonText: string
+  tone: OrderFlashTone
+}
+
+function closeReasonText(reason: TradeRecord['close_reason'], lang: Lang): string {
+  if (lang === 'zh') {
+    if (reason === 'tp') return '止盈触发'
+    if (reason === 'sl') return '止损触发'
+    if (reason === 'stop_out') return '强平触发'
+    return '数据结束'
+  }
+  if (reason === 'tp') return 'Take-profit hit'
+  if (reason === 'sl') return 'Stop-loss hit'
+  if (reason === 'stop_out') return 'Stop-out triggered'
+  return 'Data end'
+}
+
+function buildOrderFlash(trade: TradeRecord, lang: Lang): OrderFlash {
+  const pnl = trade.pnl
+  const absPnlText = `${Math.abs(pnl).toFixed(2)} USD`
+
+  if (pnl > 0) {
+    return {
+      emoji: pnl >= 50 ? '🚀' : '😎',
+      title: lang === 'zh' ? '盈利落袋！' : 'Profit secured!',
+      pnlText: `+${absPnlText}`,
+      reasonText: closeReasonText(trade.close_reason, lang),
+      tone: 'win',
+    }
+  }
+
+  if (pnl < 0) {
+    return {
+      emoji: pnl <= -50 ? '💥' : '😵',
+      title: lang === 'zh' ? '亏损一单，稳住节奏' : 'Loss taken. Reset.',
+      pnlText: `-${absPnlText}`,
+      reasonText: closeReasonText(trade.close_reason, lang),
+      tone: 'loss',
+    }
+  }
+
+  return {
+    emoji: '😐',
+    title: lang === 'zh' ? '这一单打平' : 'Flat close',
+    pnlText: `±${absPnlText}`,
+    reasonText: closeReasonText(trade.close_reason, lang),
+    tone: 'flat',
+  }
+}
 
 function LangSwitch({
   lang,
@@ -442,8 +497,41 @@ export default function Home() {
   const [error, setError] = useState('')
   const [tradePanelResetToken, setTradePanelResetToken] = useState(0)
   const [orderLevels, setOrderLevels] = useState<OrderLevels>(null)
+  const [orderFlash, setOrderFlash] = useState<OrderFlash | null>(null)
+  const [orderFlashVisible, setOrderFlashVisible] = useState(false)
 
   const chartRef = useRef<ChartRef>(null)
+  const orderFlashHideTimerRef = useRef<number | null>(null)
+  const orderFlashClearTimerRef = useRef<number | null>(null)
+
+  const clearOrderFlashTimers = useCallback(() => {
+    if (orderFlashHideTimerRef.current !== null) {
+      window.clearTimeout(orderFlashHideTimerRef.current)
+      orderFlashHideTimerRef.current = null
+    }
+    if (orderFlashClearTimerRef.current !== null) {
+      window.clearTimeout(orderFlashClearTimerRef.current)
+      orderFlashClearTimerRef.current = null
+    }
+  }, [])
+
+  const showOrderFlash = useCallback((trade: TradeRecord) => {
+    clearOrderFlashTimers()
+    setOrderFlash(buildOrderFlash(trade, lang))
+    setOrderFlashVisible(false)
+
+    window.requestAnimationFrame(() => {
+      setOrderFlashVisible(true)
+    })
+
+    orderFlashHideTimerRef.current = window.setTimeout(() => {
+      setOrderFlashVisible(false)
+    }, 1150)
+
+    orderFlashClearTimerRef.current = window.setTimeout(() => {
+      setOrderFlash(null)
+    }, 1500)
+  }, [clearOrderFlashTimers, lang])
 
   const handleLangChange = useCallback((next: Lang) => {
     setLang(next)
@@ -507,6 +595,12 @@ export default function Home() {
     refreshDashboard()
   }, [auth, refreshDashboard])
 
+  useEffect(() => {
+    return () => {
+      clearOrderFlashTimers()
+    }
+  }, [clearOrderFlashTimers])
+
   const handleAuthed = useCallback((nextAuth: AuthState) => {
     api.setAuthToken(nextAuth.token)
     window.localStorage.setItem(AUTH_TOKEN_KEY, nextAuth.token)
@@ -517,6 +611,7 @@ export default function Home() {
   }, [])
 
   const handleLogout = useCallback(() => {
+    clearOrderFlashTimers()
     window.localStorage.removeItem(AUTH_TOKEN_KEY)
     api.setAuthToken(null)
     setAuth(null)
@@ -526,12 +621,16 @@ export default function Home() {
     setStats(null)
     setLeaderboard([])
     setError('')
-  }, [])
+    setOrderFlash(null)
+    setOrderFlashVisible(false)
+  }, [clearOrderFlashTimers])
 
   const handleStart = useCallback(async (initialBalance: number) => {
     setLoading(true)
     setError('')
     setOrderLevels(null)
+    setOrderFlash(null)
+    setOrderFlashVisible(false)
     try {
       const data = await api.startGame(initialBalance)
       const sess: GameSession = {
@@ -640,6 +739,7 @@ export default function Home() {
           game_over_reason: res.game_over_reason,
         }
       })
+      showOrderFlash(res.trade)
 
       const klinesRes = await api.getKlines(session.session_id, timeframe, 300)
       chartRef.current?.setData(klinesRes.klines)
@@ -654,16 +754,19 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
-  }, [session, timeframe, refreshDashboard])
+  }, [session, timeframe, refreshDashboard, showOrderFlash])
 
   const handleRestart = useCallback(() => {
+    clearOrderFlashTimers()
     setSession(null)
     setCurrentPrice(null)
     setTimeframe('1H')
     setError('')
     setOrderLevels(null)
+    setOrderFlash(null)
+    setOrderFlashVisible(false)
     refreshDashboard()
-  }, [refreshDashboard])
+  }, [clearOrderFlashTimers, refreshDashboard])
 
   if (authLoading) {
     return (
@@ -696,13 +799,46 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col overflow-y-auto bg-[#0d1117] md:h-screen md:overflow-hidden">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto bg-[#0d1117] md:h-screen md:overflow-hidden">
       <div className="shrink-0 bg-[#0d1117] px-3 pt-2 md:px-4">
         <div className="flex justify-end">
           <LangSwitch lang={lang} onChange={handleLangChange} />
         </div>
       </div>
       <Header lang={lang} session={session} currentPrice={currentPrice} />
+
+      {orderFlash && (
+        <div
+          className={`
+            pointer-events-none fixed left-1/2 top-[78px] z-50 w-[min(92vw,360px)] -translate-x-1/2
+            transition-all duration-300 md:top-[90px]
+            ${orderFlashVisible ? 'translate-y-0 opacity-100' : '-translate-y-3 opacity-0'}
+          `}
+        >
+          <div
+            className={`
+              rounded-2xl border px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur
+              ${orderFlash.tone === 'win'
+                ? 'border-[#26a69a]/65 bg-[#26a69a]/16'
+                : orderFlash.tone === 'loss'
+                  ? 'border-[#ef5350]/65 bg-[#ef5350]/16'
+                  : 'border-[#f0b429]/65 bg-[#f0b429]/14'
+              }
+            `}
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-2xl leading-none">{orderFlash.emoji}</div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold text-white">{orderFlash.title}</div>
+                <div className={`text-lg font-black leading-6 ${orderFlash.tone === 'loss' ? 'text-[#ff8a80]' : orderFlash.tone === 'win' ? 'text-[#59d9c9]' : 'text-[#f6d26f]'}`}>
+                  {orderFlash.pnlText}
+                </div>
+                <div className="text-[11px] text-[#c9d1d9]">{orderFlash.reasonText}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="border-b border-[#ef5350]/30 bg-[#ef5350]/10 px-4 py-1.5 text-xs text-[#ef5350]">
