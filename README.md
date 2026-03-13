@@ -72,7 +72,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Backend: `http://localhost:8000`
+Backend: `http://localhost:28761`
 
 ### 2) Frontend
 
@@ -86,7 +86,7 @@ Frontend: `http://localhost:3000`
 
 `/api/*` is proxied by `next.config.js`:
 
-- Local default: `http://localhost:8000/api/*`
+- Local default: `http://localhost:28761/api/*`
 - Production: set `BACKEND_API_BASE` (example: `https://api.your-domain.com`)
 
 ### 3) Backend (Docker Compose)

@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const backendBase = (process.env.BACKEND_API_BASE || 'http://localhost:8000').replace(/\/$/, '')
+const backendBase = (process.env.BACKEND_API_BASE || 'http://localhost:28761').replace(/\/$/, '')
 
 const nextConfig = {
 
