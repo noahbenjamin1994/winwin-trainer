@@ -2,50 +2,59 @@
 
 ![XAUUSD Trainer Banner](assets/readme-banner.jpg)
 
-A historical `XAUUSD 1M` trading training project with a separated frontend/backend stack:
+A replay-based **XAUUSD trading simulator** built for one thing: train execution and risk control without leaking future candles.
 
-- Backend: `FastAPI` (game state, anti-cheat market data, fast-forward settlement)
-- Frontend: `Next.js + lightweight-charts` (charting and training interaction)
+- 🌐 Languages: English + auto-translated entries via zdoc.app
+  [中文](https://www.zdoc.app/zh/noahbenjamin1994/winwin-trainer) |
+  [日本語](https://www.zdoc.app/ja/noahbenjamin1994/winwin-trainer) |
+  [한국어](https://www.zdoc.app/ko/noahbenjamin1994/winwin-trainer) |
+  [Español](https://www.zdoc.app/es/noahbenjamin1994/winwin-trainer) |
+  [Français](https://www.zdoc.app/fr/noahbenjamin1994/winwin-trainer) |
+  [Deutsch](https://www.zdoc.app/de/noahbenjamin1994/winwin-trainer) |
+  [Русский](https://www.zdoc.app/ru/noahbenjamin1994/winwin-trainer) |
+  [Português](https://www.zdoc.app/pt/noahbenjamin1994/winwin-trainer) |
+  [العربية](https://www.zdoc.app/ar/noahbenjamin1994/winwin-trainer)
+- 🧠 Focus: discipline, anti-cheat replay, risk awareness
+- 🛠 Stack: FastAPI + Next.js + lightweight-charts
 
-Goal: train execution and risk-control discipline without exposing future market data.
+## ✨ Features
 
-## 1. Features
+- 🎲 Random historical start per session
+- ⏩ Time stepping: `+1M / +5M / +15M / +1H`
+- 🕯 Timeframes: `1M / 5M / 15M / 1H / 4H / 1D`
+- 🔐 Username + password auth (new users get one-time generated password)
+- ⚡ Backend fast-forward settlement until `SL / TP / stop_out / data_end`
+- 📈 Personal stats: win rate, Sharpe, total PnL
+- 🏆 Global leaderboard
+- 🌍 Frontend i18n (Chinese / English)
 
-- Random historical start point per game, up to `10` trades per session
-- Time stepping: `+1M / +5M / +15M / +1H`
-- Timeframe switch: `1M / 5M / 15M / 1H / 4H / 1D`
-- Username + password auth; new usernames auto-register with a one-time generated password
-- Orders are settled by backend fast-forward until `SL / TP / stop_out / data_end`
-- Stepping to the end of available data ends the current game (`data_end`)
-- Fixed spread and consistent contract rules for reproducible PnL
-- Persistent trade history, personal metrics (win rate / Sharpe / total PnL), and global leaderboard
-- Frontend i18n: Chinese/English switch
+## 🧱 Tech Stack
 
-## 2. Project Structure
+- Backend: `FastAPI` + `SQLite`
+- Frontend: `Next.js 14` + `TypeScript` + `tailwindcss`
+- Charting: `TradingView lightweight-charts`
+
+## 🗂 Project Structure
 
 ```text
 xauusd_trainer/
 ├── backend/
-│   ├── main.py            # FastAPI service and settlement logic
-│   ├── trainer.db         # SQLite database (auto-created)
-│   └── requirements.txt   # Python dependencies
+│   ├── main.py
+│   ├── trainer.db
+│   └── requirements.txt
 ├── frontend/
-│   ├── app/               # Next.js app routes/pages
-│   ├── components/        # Chart, order panel, controls, stats views
-│   ├── lib/               # API client, types, i18n
-│   └── next.config.js     # /api proxy config
-└── README.zh.md           # Chinese documentation
+│   ├── app/
+│   ├── components/
+│   ├── lib/
+│   └── next.config.js
+├── assets/
+│   └── readme-banner.jpg
+└── README.md
 ```
 
-## 3. Requirements
+## 🚀 Quick Start
 
-- Python `3.10+`
-- Node.js `18+` (recommended `20+`)
-- npm `9+`
-
-## 4. Quick Start
-
-### 4.1 Start Backend
+### 1) Backend
 
 ```bash
 cd backend
@@ -53,9 +62,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Backend default URL: `http://localhost:8000`
+Backend: `http://localhost:8000`
 
-### 4.2 Start Frontend
+### 2) Frontend
 
 ```bash
 cd frontend
@@ -63,69 +72,51 @@ npm install
 npm run dev
 ```
 
-Frontend default URL: `http://localhost:3000`
+Frontend: `http://localhost:3000`
 
-`next.config.js` proxies `/api/*` to backend:
+`/api/*` is proxied by `next.config.js`:
 
 - Local default: `http://localhost:8000/api/*`
-- Production: set `BACKEND_API_BASE` (for example `https://api.your-domain.com`)
+- Production: set `BACKEND_API_BASE` (example: `https://api.your-domain.com`)
 
-## 5. Authentication Notes
+## 🔐 Authentication
 
-- Submit a new username (3-24 chars, letters/numbers/underscore) to auto-create an account
-- System generates a 12-character random password (letters + numbers)
-- Save the generated password immediately (copy/screenshot)
-- Auth token is hashed on server side and expires in `90` days
+- New username (3–24 letters/numbers/underscore) auto-creates an account
+- A 12-character one-time password is generated for new users
+- Save it immediately (copy/screenshot)
+- Auth token is hashed server-side and valid for `90` days
 
-## 6. Data Requirement
-
-Backend loads:
-
-`~/data/workspace/finance/data_history/XAUUSD_1M.parquet`
-
-If your path differs, update `DATA_PATH` in `backend/main.py`.
-
-Parquet must include at least:
-
-- `time` (convertible to datetime)
-- `open`
-- `high`
-- `low`
-- `close`
-- `tick_volume`
-
-## 7. Trading Rules (Implemented)
+## 📊 Market & Risk Rules
 
 - Symbol: `XAUUSD`
 - Contract size: `1 lot = 100 oz`
 - Fixed spread: `$0.20` (20 points)
-- Display leverage: `1:100`
-- Minimum lot: `0.01`
-- Minimum initial balance: `$10`
+- Min lot: `0.01`
+- Min initial balance: `$10`
 - Max trades per game: `10`
 
-Margin & stop-out model (based on Jinrong China public rules used in this project):
+Margin model used in this project:
 
-- Margin for gold: `1 lot = $1000`, so `0.01 lot = $10`
-- Entry check: `balance >= required margin`
+- Gold margin: `1 lot = $1000` (so `0.01 lot = $10`)
+- Entry requires: `balance >= required margin`
 - Margin ratio: `equity / used margin * 100%`
 - Stop-out trigger: `<= 30%`
 
 Price coordinate:
 
-- Chart/K-line uses `Bid`
+- Chart/K-line = `Bid`
 - `Ask = Bid + 0.20`
 - Buy entry uses `Ask`, Sell entry uses `Bid`
 - Frontend `SL/TP` input uses `Bid` coordinate
 
-## 8. Anti-Cheat Design
+## 🛡 Anti-Cheat Design
 
-- Every session maintains `current_time` as the visible boundary
-- K-line API strictly returns data `<= current_time`
+- Each session has a strict `current_time` boundary
+- K-line API only returns data `<= current_time`
 - Step API returns incremental 1M bars only
-- Random start uses safe buffers: first `5000`, last `10000` 1M bars excluded
+- Random start excludes first `5000` and last `10000` bars
 
-## 9. API Overview
+## 🧩 API Endpoints
 
 - `POST /api/auth/login`
 - `GET /api/auth/me`
@@ -137,23 +128,21 @@ Price coordinate:
 - `POST /api/trade/order`
 - `GET /api/game/session/{session_id}`
 
-## 10. Important Notes
+## 📌 Important Notes
 
 - Session state is cached in memory and recoverable from DB on cache miss/restart
 - Users, sessions, trades, steps, and operation logs persist in `backend/trainer.db`
-- Current CORS is `allow_origins=["*"]` and should be restricted for production
-- This project is a training simulator, not investment advice
+- CORS is currently permissive (`allow_origins=["*"]`) and should be restricted in production
+- This project is for training/research use only, not investment advice
 
-## 11. Production Checklist
-
-At minimum, add:
+## 🗺 Production Checklist
 
 - Strict CORS allow-list
 - API rate limiting
-- Strong deployment/network boundary controls
+- Deployment/network boundary hardening
 - Monitoring and audit strategy
 
-## 12. Personal Story
+## 🧭 Personal Story
 
 I built this platform because of an experience in my own family.  
 My father has traded XAUUSD for a long time. He believes strongly in his method, and often says he can make a few hundred dollars a day.  
@@ -169,7 +158,7 @@ So I built this platform.
 I want it to pull people back from emotion into rules, and to train execution and risk control in a replayable environment.  
 I built it for my father first, and as a reminder for myself.
 
-## 13. Affiliate Disclosure
+## 🤝 Affiliate Disclosure
 
 I joined the Upway affiliate program.  
 If you are looking for a live/demo gold trading platform, you can use my referral link:
