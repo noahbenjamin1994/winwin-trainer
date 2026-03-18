@@ -11,6 +11,11 @@ frontend/.next/
 frontend/.env*.local
 .env
 
+# Capacitor 构建产物
+frontend/out/
+frontend/android/
+frontend/capacitor.config.ts
+
 # 数据文件（不提交 parquet，太大）
 data_history/
 *.parquet

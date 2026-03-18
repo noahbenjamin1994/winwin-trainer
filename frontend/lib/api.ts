@@ -20,7 +20,7 @@ import type {
 import { type Lang, translateBackendError } from './i18n'
 
 const http = axios.create({
-  baseURL: '',
+  baseURL: process.env.NEXT_PUBLIC_API_BASE ?? '',
   timeout: 30000,
 })
 
