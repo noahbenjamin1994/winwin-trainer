@@ -94,15 +94,15 @@ function LangSwitch({
   onChange: (next: Lang) => void
 }) {
   return (
-    <div className="flex items-center gap-1 rounded-full border border-[#30363d] bg-[#0d1117]/90 p-1 text-[11px] shadow-[0_0_0_1px_rgba(240,180,41,0.08)]">
+    <div className="flex items-center gap-1 rounded-full border border-[#1a1714] bg-[#080b10]/90 p-1 text-[11px]">
       <button
-        className={`rounded-full px-2.5 py-0.5 transition-colors ${lang === 'zh' ? 'bg-[#f0b429] text-black font-bold' : 'text-[#8b949e] hover:text-white'}`}
+        className={`rounded-full px-2.5 py-0.5 transition-colors ${lang === 'zh' ? 'bg-[#f0b429] text-black font-bold' : 'text-[#554d3d] hover:text-white'}`}
         onClick={() => onChange('zh')}
       >
         {tr(lang, 'langZh')}
       </button>
       <button
-        className={`rounded-full px-2.5 py-0.5 transition-colors ${lang === 'en' ? 'bg-[#f0b429] text-black font-bold' : 'text-[#8b949e] hover:text-white'}`}
+        className={`rounded-full px-2.5 py-0.5 transition-colors ${lang === 'en' ? 'bg-[#f0b429] text-black font-bold' : 'text-[#554d3d] hover:text-white'}`}
         onClick={() => onChange('en')}
       >
         {tr(lang, 'langEn')}
@@ -166,9 +166,9 @@ function AuthScreen({
   return (
     <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#0a0d12] px-4 py-6">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-[-120px] h-72 w-72 rounded-full bg-[#f0b429]/18 blur-3xl" />
-        <div className="absolute right-[-140px] top-[20%] h-80 w-80 rounded-full bg-[#26a69a]/16 blur-3xl" />
-        <div className="absolute bottom-[-140px] left-[30%] h-80 w-80 rounded-full bg-[#ef5350]/12 blur-3xl" />
+        <div className="absolute -left-24 top-[-120px] h-72 w-72 rounded-full bg-[#f0b429]/6 blur-3xl" />
+        <div className="absolute right-[-140px] top-[20%] h-80 w-80 rounded-full bg-[#26a69a]/5 blur-3xl" />
+        <div className="absolute bottom-[-140px] left-[30%] h-80 w-80 rounded-full bg-[#ef5350]/4 blur-3xl" />
       </div>
 
       <div className="relative z-10 w-full max-w-6xl overflow-hidden rounded-3xl border border-[#2b313d] bg-[#11161f]/85 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur">
@@ -324,164 +324,153 @@ function LobbyScreen({
   }
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-[#090d13] px-4 py-6">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 top-[-80px] h-72 w-72 rounded-full bg-[#f0b429]/15 blur-3xl" />
-        <div className="absolute right-[-120px] top-[10%] h-72 w-72 rounded-full bg-[#26a69a]/14 blur-3xl" />
-        <div className="absolute bottom-[-120px] left-[35%] h-80 w-80 rounded-full bg-[#1f6feb]/12 blur-3xl" />
-      </div>
+    <div className="relative min-h-[100dvh] overflow-hidden bg-[#080b10] px-4 py-8">
+      {/* Warm gold ambient glow — top center */}
+      <div className="pointer-events-none absolute left-1/2 top-[-200px] h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-[#f0b429]/[0.04] blur-[120px]" />
 
-      <div className="relative mx-auto w-full max-w-7xl space-y-5">
-        <div className="rounded-2xl border border-[#2a313d] bg-[#121923]/90 p-4 shadow-[0_12px_48px_rgba(0,0,0,0.35)] backdrop-blur">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.22em] text-[#8b949e]">Trading Arena</div>
-              <div className="mt-1 text-xl font-bold text-[#f0b429]">{tr(lang, 'lobbyTitle')}</div>
-              <div className="mt-1 text-xs text-[#8b949e]">{tr(lang, 'currentUser', { username })}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <LangSwitch lang={lang} onChange={onLangChange} />
-              <button
-                onClick={onLogout}
-                className="rounded-lg border border-[#3a434f] px-3 py-1.5 text-xs text-[#8b949e] transition-colors hover:border-[#f0b429] hover:text-[#f0b429]"
-              >
-                {tr(lang, 'logout')}
-              </button>
-            </div>
+      <div className="relative mx-auto w-full max-w-5xl">
+        {/* Minimal top bar */}
+        <div className="mb-12 flex items-center justify-between">
+          <div className="text-[11px] text-[#3d3528]">{tr(lang, 'currentUser', { username })}</div>
+          <div className="flex items-center gap-2">
+            <LangSwitch lang={lang} onChange={onLangChange} />
+            <button
+              onClick={onLogout}
+              className="px-2 py-1 text-[11px] text-[#3d3528] transition-colors hover:text-[#f0b429]"
+            >
+              {tr(lang, 'logout')}
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_1fr]">
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-[#2a313d] bg-[#121923]/90 p-5 shadow-[0_10px_36px_rgba(0,0,0,0.28)]">
-              <div className="mb-4 text-sm font-bold text-white">{tr(lang, 'startTraining')}</div>
-              <label className="mb-1.5 block text-[11px] uppercase tracking-wider text-[#8b949e]">{tr(lang, 'initialBalanceUsd')}</label>
-              <input
-                type="number"
-                min={String(MIN_INITIAL_BALANCE)}
-                max={String(MAX_INITIAL_BALANCE)}
-                step="10"
-                value={balance}
-                onChange={e => setBalance(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleStart()}
-                className="w-full rounded-xl border border-[#343d4a] bg-[#0d1117]/95 px-3.5 py-3 text-2xl text-white outline-none transition-colors focus:border-[#f0b429]"
-              />
+        {/* Hero CTA — the main event */}
+        <div className="mx-auto mb-16 max-w-lg text-center">
+          <div className="mb-8">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-[#f0b429]/50">XAUUSD</div>
+            <div className="mt-2 text-4xl font-bold tracking-tight text-white sm:text-5xl">{tr(lang, 'lobbyTitle')}</div>
+          </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-[#8b949e]">
-                <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/70 px-2.5 py-2">{tr(lang, 'ruleMaxTrades')}</div>
-                <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/70 px-2.5 py-2">{tr(lang, 'ruleAutoResult')}</div>
-                <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/70 px-2.5 py-2">{tr(lang, 'ruleStopOut')}</div>
+          <div className="mb-6">
+            <label className="mb-3 block text-[10px] uppercase tracking-[0.2em] text-[#554d3d]">{tr(lang, 'initialBalanceUsd')}</label>
+            <input
+              type="number"
+              min={String(MIN_INITIAL_BALANCE)}
+              max={String(MAX_INITIAL_BALANCE)}
+              step="10"
+              value={balance}
+              onChange={e => setBalance(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleStart()}
+              className="w-full border-b-2 border-[#f0b429]/25 bg-transparent pb-3 text-center font-mono text-5xl font-bold text-white outline-none transition-colors focus:border-[#f0b429] placeholder:text-[#1a1d24] sm:text-6xl"
+              placeholder="10000"
+            />
+          </div>
+
+          <div className="mb-6 flex justify-center gap-6 text-[11px] text-[#3d3528]">
+            <span>{tr(lang, 'ruleMaxTrades')}</span>
+            <span>{tr(lang, 'ruleStopOut')}</span>
+          </div>
+
+          {error && (
+            <div className="mb-4 text-xs text-[#ef5350]">{error}</div>
+          )}
+
+          <button
+            onClick={handleStart}
+            disabled={loading}
+            className="w-full rounded-lg bg-[#f0b429] py-4 text-sm font-bold uppercase tracking-wider text-black transition-all hover:bg-[#daa520] hover:shadow-[0_0_40px_rgba(240,180,41,0.15)] disabled:cursor-not-allowed disabled:opacity-40 sm:w-64"
+          >
+            {loading ? tr(lang, 'initializing') : tr(lang, 'startNow')}
+          </button>
+        </div>
+
+        {/* Stats strip — horizontal, big numbers */}
+        {stats && (
+          <div className="mb-12 flex flex-wrap justify-center gap-x-10 gap-y-4">
+            {[
+              { value: String(stats.total_trades), label: tr(lang, 'statTotalTrades'), color: 'text-[#706858]' },
+              { value: `${stats.win_rate.toFixed(1)}%`, label: tr(lang, 'statWinRate'), color: 'text-[#26a69a]' },
+              { value: stats.sharpe.toFixed(2), label: tr(lang, 'statSharpe'), color: 'text-[#706858]' },
+              { value: `${stats.total_pnl >= 0 ? '+' : ''}${stats.total_pnl.toFixed(2)}`, label: tr(lang, 'statPnl'), color: stats.total_pnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]' },
+            ].map(s => (
+              <div key={s.label} className="text-center">
+                <div className={`font-mono text-2xl font-bold ${s.color}`}>{s.value}</div>
+                <div className="mt-0.5 text-[9px] uppercase tracking-[0.2em] text-[#2a2520]">{s.label}</div>
               </div>
+            ))}
+          </div>
+        )}
 
-              {error && (
-                <div className="mt-4 rounded-lg border border-[#ef5350]/30 bg-[#ef5350]/12 px-3 py-2 text-xs text-[#ef5350]">{error}</div>
-              )}
-
+        {/* Leaderboard — clean, no wrapper */}
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+            <span className="mr-2 text-[10px] uppercase tracking-[0.2em] text-[#3d3528]">{tr(lang, 'leaderboard')}</span>
+            {[
+              { key: 'win_rate', label: tr(lang, 'sortByWinRate') },
+              { key: 'sharpe', label: tr(lang, 'sortBySharpe') },
+              { key: 'total_pnl', label: tr(lang, 'sortByPnl') },
+            ].map(item => (
               <button
-                onClick={handleStart}
-                disabled={loading}
-                className="mt-4 w-full rounded-xl bg-[#f0b429] py-3 text-sm font-bold text-black transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+                key={item.key}
+                onClick={() => onSortChange(item.key as LeaderboardSort)}
+                className={`
+                  rounded px-2.5 py-1 text-[11px] transition-all
+                  ${leaderboardSort === item.key
+                    ? 'text-[#f0b429] font-bold'
+                    : 'text-[#3d3528] hover:text-[#706858]'
+                  }
+                `}
               >
-                {loading ? tr(lang, 'initializing') : tr(lang, 'startNow')}
+                {item.label}
               </button>
-            </div>
-
-            <div className="rounded-2xl border border-[#2a313d] bg-[#121923]/90 p-5 shadow-[0_10px_36px_rgba(0,0,0,0.28)]">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-bold text-white">{tr(lang, 'myStats')}</div>
-                <button
-                  onClick={onRefreshBoard}
-                  className="rounded-lg border border-[#3a434f] px-2.5 py-1 text-[11px] text-[#8b949e] transition-colors hover:border-[#f0b429] hover:text-[#f0b429]"
-                >
-                  {tr(lang, 'refresh')}
-                </button>
-              </div>
-              {stats ? (
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/80 p-3">
-                    <div className="text-[#8b949e]">{tr(lang, 'statTotalTrades')}</div>
-                    <div className="mt-1 font-mono text-lg font-bold text-white">{stats.total_trades}</div>
-                  </div>
-                  <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/80 p-3">
-                    <div className="text-[#8b949e]">{tr(lang, 'statWinRate')}</div>
-                    <div className="mt-1 font-mono text-lg font-bold text-[#26a69a]">{stats.win_rate.toFixed(2)}%</div>
-                  </div>
-                  <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/80 p-3">
-                    <div className="text-[#8b949e]">{tr(lang, 'statSharpe')}</div>
-                    <div className="mt-1 font-mono text-lg font-bold text-white">{stats.sharpe.toFixed(4)}</div>
-                  </div>
-                  <div className="rounded-lg border border-[#2f3642] bg-[#0d1117]/80 p-3">
-                    <div className="text-[#8b949e]">{tr(lang, 'statPnl')}</div>
-                    <div className={`mt-1 font-mono text-lg font-bold ${stats.total_pnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-                      {stats.total_pnl >= 0 ? '+' : ''}{stats.total_pnl.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs text-[#8b949e]">{tr(lang, 'noStats')}</div>
-              )}
-            </div>
+            ))}
           </div>
 
-          <div className="rounded-2xl border border-[#2a313d] bg-[#121923]/90 p-5 shadow-[0_10px_36px_rgba(0,0,0,0.28)]">
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <div className="mr-2 text-sm font-bold text-white">{tr(lang, 'leaderboard')}</div>
-              {[
-                { key: 'win_rate', label: tr(lang, 'sortByWinRate') },
-                { key: 'sharpe', label: tr(lang, 'sortBySharpe') },
-                { key: 'total_pnl', label: tr(lang, 'sortByPnl') },
-              ].map(item => (
-                <button
-                  key={item.key}
-                  onClick={() => onSortChange(item.key as LeaderboardSort)}
-                  className={`
-                    rounded-full px-3 py-1 text-[11px] transition-all
-                    ${leaderboardSort === item.key
-                      ? 'bg-[#f0b429] font-bold text-black'
-                      : 'border border-[#3a434f] text-[#8b949e] hover:text-white'
-                    }
-                  `}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            {loadingBoard ? (
-              <div className="text-xs text-[#8b949e]">{tr(lang, 'loading')}</div>
-            ) : leaderboard.length === 0 ? (
-              <div className="text-xs text-[#8b949e]">{tr(lang, 'noLeaderboard')}</div>
-            ) : (
-              <div className="overflow-auto rounded-xl border border-[#2f3642]">
-                <table className="min-w-[700px] w-full text-xs font-mono">
-                  <thead className="bg-[#0f141c]">
-                    <tr className="border-b border-[#30363d] text-[#8b949e]">
-                      <th className="px-3 py-2 text-left">#</th>
-                      <th className="px-3 py-2 text-left">{tr(lang, 'rankUser')}</th>
-                      <th className="px-3 py-2 text-right">{tr(lang, 'statWinRate')}</th>
-                      <th className="px-3 py-2 text-right">{tr(lang, 'statSharpe')}</th>
-                      <th className="px-3 py-2 text-right">{tr(lang, 'statPnl')}</th>
-                      <th className="px-3 py-2 text-right">{tr(lang, 'rankTotalTrades')}</th>
+          {loadingBoard ? (
+            <div className="text-center text-xs text-[#3d3528]">{tr(lang, 'loading')}</div>
+          ) : leaderboard.length === 0 ? (
+            <div className="text-center text-xs text-[#3d3528]">{tr(lang, 'noLeaderboard')}</div>
+          ) : (
+            <div className="mx-auto max-w-3xl overflow-auto">
+              <table className="w-full min-w-[580px] text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-[#15120e] text-[9px] uppercase tracking-[0.15em] text-[#2a2520]">
+                    <th className="px-3 py-2.5 text-left font-normal">#</th>
+                    <th className="px-3 py-2.5 text-left font-normal">{tr(lang, 'rankUser')}</th>
+                    <th className="px-3 py-2.5 text-right font-normal">{tr(lang, 'statWinRate')}</th>
+                    <th className="px-3 py-2.5 text-right font-normal">{tr(lang, 'statSharpe')}</th>
+                    <th className="px-3 py-2.5 text-right font-normal">{tr(lang, 'statPnl')}</th>
+                    <th className="px-3 py-2.5 text-right font-normal">{tr(lang, 'rankTotalTrades')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboard.map(row => (
+                    <tr
+                      key={`${row.rank}-${row.username}`}
+                      className="border-b border-[#0f0d0a] transition-colors hover:bg-[#0e1014]"
+                    >
+                      <td className="px-3 py-2">
+                        <span className={
+                          row.rank === 1 ? 'text-[#f0b429] font-bold' :
+                          row.rank === 2 ? 'text-[#8a8070] font-bold' :
+                          row.rank === 3 ? 'text-[#8a6030] font-bold' :
+                          'text-[#2a2520]'
+                        }>
+                          {row.rank}
+                        </span>
+                      </td>
+                      <td className={`px-3 py-2 ${row.rank <= 3 ? 'text-[#c8bfa8] font-bold' : 'text-[#554d3d]'}`}>{row.username}</td>
+                      <td className="px-3 py-2 text-right text-[#26a69a]">{row.win_rate.toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-right text-[#554d3d]">{row.sharpe.toFixed(4)}</td>
+                      <td className={`px-3 py-2 text-right ${row.total_pnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
+                        {row.total_pnl >= 0 ? '+' : ''}{row.total_pnl.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-[#2a2520]">{row.total_trades}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {leaderboard.map(row => (
-                      <tr key={`${row.rank}-${row.username}`} className="border-b border-[#21262d] transition-colors hover:bg-[#0d1117]">
-                        <td className="px-3 py-2 text-white">{row.rank}</td>
-                        <td className="px-3 py-2 text-white">{row.username}</td>
-                        <td className="px-3 py-2 text-right text-[#26a69a]">{row.win_rate.toFixed(2)}%</td>
-                        <td className="px-3 py-2 text-right text-white">{row.sharpe.toFixed(4)}</td>
-                        <td className={`px-3 py-2 text-right ${row.total_pnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-                          {row.total_pnl >= 0 ? '+' : ''}{row.total_pnl.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-right text-white">{row.total_trades}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -507,6 +496,7 @@ export default function Home() {
   const [orderLevels, setOrderLevels] = useState<OrderLevels>(null)
   const [orderFlash, setOrderFlash] = useState<OrderFlash | null>(null)
   const [orderFlashVisible, setOrderFlashVisible] = useState(false)
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
 
   const chartRef = useRef<ChartRef>(null)
   const orderFlashHideTimerRef = useRef<number | null>(null)
@@ -773,12 +763,17 @@ export default function Home() {
     setOrderLevels(null)
     setOrderFlash(null)
     setOrderFlashVisible(false)
+    setShowExitConfirm(false)
     refreshDashboard()
   }, [clearOrderFlashTimers, refreshDashboard])
 
+  const handleExitRequest = useCallback(() => {
+    setShowExitConfirm(true)
+  }, [])
+
   if (authLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0d1117] text-sm text-[#8b949e]">
+      <div className="flex h-screen items-center justify-center bg-[#080b10] text-sm text-[#554d3d]">
         {tr(lang, 'checkingLogin')}
       </div>
     )
@@ -807,13 +802,8 @@ export default function Home() {
   }
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto bg-[#0d1117] md:h-screen md:overflow-hidden">
-      <div className="shrink-0 bg-[#0d1117] px-3 pt-2 md:px-4">
-        <div className="flex justify-end">
-          <LangSwitch lang={lang} onChange={handleLangChange} />
-        </div>
-      </div>
-      <Header lang={lang} session={session} currentPrice={currentPrice} />
+    <div className="relative flex min-h-[100dvh] flex-col overflow-y-auto bg-[#080b10] md:h-screen md:overflow-hidden">
+      <Header lang={lang} session={session} currentPrice={currentPrice} onExit={session.game_over ? undefined : handleExitRequest} langSwitch={<LangSwitch lang={lang} onChange={handleLangChange} />} />
 
       {orderFlash && (
         <div
@@ -866,7 +856,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="w-full shrink-0 border-t border-[#21262d] lg:w-72 lg:border-l lg:border-t-0 lg:overflow-y-auto">
+        <div className="w-full shrink-0 border-t border-[#1a1714] lg:w-72 lg:border-l lg:border-t-0 lg:overflow-y-auto">
           <TradePanel
             lang={lang}
             sessionId={session.session_id}
@@ -900,6 +890,29 @@ export default function Home() {
           trades={session.trade_history}
           onRestart={handleRestart}
         />
+      )}
+
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowExitConfirm(false)}>
+          <div className="w-full max-w-sm rounded-xl border border-[#1a1714] bg-[#0b0e14] p-6 text-center" onClick={e => e.stopPropagation()}>
+            <div className="text-lg font-bold text-white">{tr(lang, 'exitConfirmTitle')}</div>
+            <div className="mt-2 text-sm text-[#554d3d]">{tr(lang, 'exitConfirmBody')}</div>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                className="flex-1 rounded-lg border border-[#1a1714] py-2.5 text-sm text-[#554d3d] transition-colors hover:border-white hover:text-white"
+              >
+                {tr(lang, 'exitConfirmNo')}
+              </button>
+              <button
+                onClick={handleRestart}
+                className="flex-1 rounded-lg bg-[#ef5350] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#ef5350]/80"
+              >
+                {tr(lang, 'exitConfirmYes')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

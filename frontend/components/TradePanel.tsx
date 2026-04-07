@@ -132,9 +132,9 @@ export default function TradePanel({
   const rr = riskUsd > 0 ? (rewardUsd / riskUsd).toFixed(2) : '—'
 
   return (
-    <div className="flex h-full flex-col bg-[#161b22] text-xs lg:border-l lg:border-[#21262d]">
-      
-      <div className="border-b border-[#21262d] px-4 py-2 font-bold uppercase tracking-wider text-[#8b949e]">
+    <div className="flex h-full flex-col bg-[#0b0e14] text-xs lg:border-l lg:border-[#1a1714]">
+
+      <div className="border-b border-[#1a1714] px-4 py-2 font-bold uppercase tracking-wider text-[#554d3d]">
         {tr(lang, 'placeOrder')}
       </div>
 
@@ -148,7 +148,7 @@ export default function TradePanel({
               py-3 rounded font-bold text-sm transition-all
               ${direction === 'Buy'
                 ? 'bg-[#26a69a] text-white'
-                : 'bg-[#0d1117] text-[#26a69a] border border-[#26a69a] hover:bg-[#26a69a]/10'
+                : 'bg-[#080b10] text-[#26a69a] border border-[#26a69a] hover:bg-[#26a69a]/10'
               }
               ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
             `}
@@ -163,7 +163,7 @@ export default function TradePanel({
               py-3 rounded font-bold text-sm transition-all
               ${direction === 'Sell'
                 ? 'bg-[#ef5350] text-white'
-                : 'bg-[#0d1117] text-[#ef5350] border border-[#ef5350] hover:bg-[#ef5350]/10'
+                : 'bg-[#080b10] text-[#ef5350] border border-[#ef5350] hover:bg-[#ef5350]/10'
               }
               ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
             `}
@@ -175,23 +175,23 @@ export default function TradePanel({
 
         
         <div>
-          <label className="text-[#8b949e] block mb-1">{tr(lang, 'lotLabel')}</label>
+          <label className="text-[#554d3d] block mb-1">{tr(lang, 'lotLabel')}</label>
           <input
             type="number"
             min="0.01"
             step="0.01"
             value={lotSize}
             onChange={e => setLotSize(e.target.value)}
-            className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-white font-mono
+            className="w-full bg-[#080b10] border border-[#1a1714] rounded px-2 py-1.5 text-white font-mono
                        focus:outline-none focus:border-[#f0b429]"
           />
-          <div className="text-[#8b949e] mt-0.5">≈ {(lot * 100).toFixed(0)} {tr(lang, 'ounces')}</div>
+          <div className="text-[#554d3d] mt-0.5">≈ {(lot * 100).toFixed(0)} {tr(lang, 'ounces')}</div>
         </div>
 
         
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[#8b949e] block mb-1">{tr(lang, 'slOffset')}</label>
+            <label className="text-[#554d3d] block mb-1">{tr(lang, 'slOffset')}</label>
             <div className="grid grid-cols-4 gap-1">
               {OFFSET_OPTIONS.map(v => (
                 <button
@@ -202,7 +202,7 @@ export default function TradePanel({
                     rounded border px-1 py-1 text-[11px] font-mono
                     ${slOffset === v
                       ? 'border-[#ef5350] bg-[#ef5350]/20 text-[#ef5350]'
-                      : 'border-[#30363d] text-[#8b949e] hover:border-[#ef5350]/50 hover:text-[#ef5350]'
+                      : 'border-[#1a1714] text-[#554d3d] hover:border-[#ef5350]/50 hover:text-[#ef5350]'
                     }
                   `}
                 >
@@ -212,7 +212,7 @@ export default function TradePanel({
             </div>
           </div>
           <div>
-            <label className="text-[#8b949e] block mb-1">{tr(lang, 'tpOffset')}</label>
+            <label className="text-[#554d3d] block mb-1">{tr(lang, 'tpOffset')}</label>
             <div className="grid grid-cols-4 gap-1">
               {OFFSET_OPTIONS.map(v => (
                 <button
@@ -223,7 +223,7 @@ export default function TradePanel({
                     rounded border px-1 py-1 text-[11px] font-mono
                     ${tpOffset === v
                       ? 'border-[#26a69a] bg-[#26a69a]/20 text-[#26a69a]'
-                      : 'border-[#30363d] text-[#8b949e] hover:border-[#26a69a]/50 hover:text-[#26a69a]'
+                      : 'border-[#1a1714] text-[#554d3d] hover:border-[#26a69a]/50 hover:text-[#26a69a]'
                     }
                   `}
                 >
@@ -237,42 +237,46 @@ export default function TradePanel({
         
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[#8b949e] block mb-1">{tr(lang, 'slPrice')}</label>
+            <label className="text-[#554d3d] block mb-1">{tr(lang, 'slPrice')}</label>
             <input
               type="number"
               step="0.01"
               value={sl}
               onChange={e => setSl(e.target.value)}
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[#ef5350] font-mono
+              className="w-full bg-[#080b10] border border-[#1a1714] rounded px-2 py-1.5 text-[#ef5350] font-mono
                          focus:outline-none focus:border-[#ef5350]"
             />
           </div>
           <div>
-            <label className="text-[#8b949e] block mb-1">{tr(lang, 'tpPrice')}</label>
+            <label className="text-[#554d3d] block mb-1">{tr(lang, 'tpPrice')}</label>
             <input
               type="number"
               step="0.01"
               value={tp}
               onChange={e => setTp(e.target.value)}
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-2 py-1.5 text-[#26a69a] font-mono
+              className="w-full bg-[#080b10] border border-[#1a1714] rounded px-2 py-1.5 text-[#26a69a] font-mono
                          focus:outline-none focus:border-[#26a69a]"
             />
           </div>
         </div>
 
         
-        <div className="bg-[#0d1117] rounded p-2 space-y-1">
-          <div className="flex justify-between">
-            <span className="text-[#8b949e]">{tr(lang, 'risk')}</span>
+        <div className="rounded bg-[#080b10] p-2.5 space-y-2">
+          <div className="flex justify-between text-[11px]">
             <span className="text-[#ef5350] font-mono">-${riskUsd.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#8b949e]">{tr(lang, 'reward')}</span>
+            <span className="font-bold text-white font-mono tracking-wider">1 : {rr}</span>
             <span className="text-[#26a69a] font-mono">+${rewardUsd.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between border-t border-[#21262d] pt-1">
-            <span className="text-[#8b949e]">{tr(lang, 'rr')}</span>
-            <span className="text-white font-mono font-bold">1 : {rr}</span>
+          {/* Visual R:R bar */}
+          <div className="flex h-1.5 overflow-hidden rounded-full">
+            <div
+              className="bg-[#ef5350] transition-all duration-200"
+              style={{ width: riskUsd + rewardUsd > 0 ? `${(riskUsd / (riskUsd + rewardUsd)) * 100}%` : '50%' }}
+            />
+            <div
+              className="bg-[#26a69a] transition-all duration-200"
+              style={{ width: riskUsd + rewardUsd > 0 ? `${(rewardUsd / (riskUsd + rewardUsd)) * 100}%` : '50%' }}
+            />
           </div>
         </div>
 
@@ -305,10 +309,6 @@ export default function TradePanel({
         </button>
       </div>
 
-      
-      <div className="truncate border-t border-[#21262d] px-3 py-1.5 text-[10px] text-[#30363d]">
-        {sessionId ? `SID: ${sessionId.slice(0, 8)}…` : '—'}
-      </div>
     </div>
   )
 }

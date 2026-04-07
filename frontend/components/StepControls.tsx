@@ -23,9 +23,9 @@ const STEPS: { label: string; minutes: 1 | 5 | 15 | 60 }[] = [
 
 export default function StepControls({ lang, disabled, loading, onStep }: Props) {
   return (
-    <div className="shrink-0 border-t border-[#21262d] bg-[#161b22] px-3 py-2">
-      <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
-        <span className="w-full text-center text-[11px] text-[#8b949e] md:mr-2 md:w-auto md:text-xs">
+    <div className="shrink-0 border-t border-[#1a1714] bg-[#080b10] px-3 py-2">
+      <div className="flex flex-wrap items-center justify-center gap-1.5 md:gap-2">
+        <span className="mr-1 text-[10px] uppercase tracking-widest text-[#3d3528] hidden md:inline">
           {tr(lang, 'stepForward')}
         </span>
         {STEPS.map(({ label, minutes }) => (
@@ -34,10 +34,10 @@ export default function StepControls({ lang, disabled, loading, onStep }: Props)
             onClick={() => onStep(minutes)}
             disabled={disabled || loading}
             className={`
-              min-w-16 rounded border px-4 py-1.5 text-xs font-bold font-mono transition-all md:px-5 md:text-sm
+              min-w-14 rounded px-4 py-2 text-xs font-bold font-mono transition-all md:min-w-16 md:px-5 md:text-sm
               ${disabled || loading
-                ? 'cursor-not-allowed border-[#30363d] text-[#30363d]'
-                : 'cursor-pointer border-[#f0b429] text-[#f0b429] hover:bg-[#f0b429] hover:text-black'
+                ? 'cursor-not-allowed bg-[#0b0e14] text-[#1a1714]'
+                : 'cursor-pointer bg-[#f0b429]/10 text-[#f0b429] hover:bg-[#f0b429] hover:text-black active:scale-95'
               }
             `}
           >

@@ -85,22 +85,22 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
 
     const chart = createChart(containerRef.current, {
       layout: {
-        background: { color: '#0d1117' },
-        textColor:  '#8b949e',
+        background: { color: '#080b10' },
+        textColor:  '#554d3d',
         fontSize:   11,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: '#21262d' },
-        horzLines: { color: '#21262d' },
+        vertLines: { color: '#12100d' },
+        horzLines: { color: '#12100d' },
       },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: {
-        borderColor: '#30363d',
+        borderColor: '#1a1714',
         scaleMargins: { top: 0.08, bottom: 0.25 },
       },
       timeScale: {
-        borderColor:  '#30363d',
+        borderColor:  '#1a1714',
         timeVisible:  true,
         secondsVisible: false,
         barSpacing: 6,
@@ -218,7 +218,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
   return (
     <div className="flex flex-col h-full">
       
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-[#21262d] bg-[#161b22] px-3 py-1.5 shrink-0">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-[#1a1714] bg-[#0b0e14] px-3 py-1.5 shrink-0">
         {TIMEFRAMES.map(tf => (
           <button
             key={tf}
@@ -227,19 +227,19 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
               shrink-0 rounded px-3 py-0.5 text-xs font-mono transition-colors
               ${timeframe === tf
                 ? 'bg-[#f0b429] text-black font-bold'
-                : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'
+                : 'text-[#554d3d] hover:text-white hover:bg-[#12100d]'
               }
             `}
           >
             {tf}
           </button>
         ))}
-        <span className="ml-auto shrink-0 text-[10px] text-[#8b949e]">{tr(lang, 'instrumentUnit')}</span>
+        <span className="ml-auto shrink-0 text-[10px] text-[#3d3528]">{tr(lang, 'instrumentUnit')}</span>
         <a
           href="https://www.tradingview.com/"
           target="_blank"
           rel="noreferrer noopener"
-          className="ml-2 shrink-0 text-[10px] text-[#8b949e] underline hover:text-white"
+          className="ml-2 shrink-0 text-[10px] text-[#3d3528] underline hover:text-white"
         >
           Powered by TradingView
         </a>
@@ -248,7 +248,7 @@ const Chart = forwardRef<ChartRef, Props>(function Chart(
       
       <div ref={containerRef} className="flex-1 w-full">
         {!mounted && (
-          <div className="flex items-center justify-center h-full text-[#30363d] text-xs">
+          <div className="flex items-center justify-center h-full text-[#2a2520] text-xs">
             {tr(lang, 'loadingChart')}
           </div>
         )}

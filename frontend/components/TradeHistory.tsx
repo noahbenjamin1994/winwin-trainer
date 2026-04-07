@@ -29,14 +29,14 @@ export default function TradeHistory({ lang, trades }: Props) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#0d1117] border-t border-[#21262d]">
+    <div className="h-full flex flex-col bg-[#080b10] border-t border-[#1a1714]">
       
-      <div className="flex items-center justify-between px-4 py-1.5 border-b border-[#21262d] bg-[#161b22] shrink-0">
-        <span className="text-[#8b949e] text-xs font-bold uppercase tracking-wider">
+      <div className="flex items-center justify-between px-4 py-1.5 border-b border-[#1a1714] bg-[#0b0e14] shrink-0">
+        <span className="text-[#554d3d] text-xs font-bold uppercase tracking-wider">
           {tr(lang, 'tradeRecord', { count: trades.length })}
         </span>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] text-[#8b949e] sm:hidden">{tr(lang, 'swipeHint')}</span>
+          <span className="text-[10px] text-[#554d3d] sm:hidden">{tr(lang, 'swipeHint')}</span>
           {trades.length > 0 && (
             <span className={`text-xs font-mono font-bold ${totalPnl >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
               {tr(lang, 'total')}: {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
@@ -48,13 +48,13 @@ export default function TradeHistory({ lang, trades }: Props) {
       
       <div className="flex-1 overflow-auto">
         {trades.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-[#8b949e] text-xs">
+          <div className="flex items-center justify-center h-full text-[#554d3d] text-xs">
             {tr(lang, 'noTrades')}
           </div>
         ) : (
           <table className="min-w-[980px] w-full text-xs font-mono">
-            <thead className="sticky top-0 bg-[#161b22]">
-              <tr className="text-[#8b949e] border-b border-[#21262d]">
+            <thead className="sticky top-0 bg-[#0b0e14]">
+              <tr className="text-[#554d3d] border-b border-[#1a1714]">
                 <th className="px-3 py-1.5 text-left">#</th>
                 <th className="px-3 py-1.5 text-left">{tr(lang, 'direction')}</th>
                 <th className="px-3 py-1.5 text-right">{tr(lang, 'lotSize')}</th>
@@ -72,9 +72,9 @@ export default function TradeHistory({ lang, trades }: Props) {
               {[...trades].reverse().map(t => (
                 <tr
                   key={t.id}
-                  className="border-b border-[#21262d] hover:bg-[#161b22] transition-colors"
+                  className="border-b border-[#1a1714] hover:bg-[#0b0e14] transition-colors"
                 >
-                  <td className="px-3 py-1.5 text-[#8b949e]">{t.id}</td>
+                  <td className="px-3 py-1.5 text-[#554d3d]">{t.id}</td>
                   <td className="px-3 py-1.5">
                     <span className={`font-bold ${t.direction === 'Buy' ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
                       {t.direction === 'Buy' ? tr(lang, 'long') : tr(lang, 'short')}
@@ -85,8 +85,8 @@ export default function TradeHistory({ lang, trades }: Props) {
                   <td className="px-3 py-1.5 text-right text-white">{t.close_price.toFixed(2)}</td>
                   <td className="px-3 py-1.5 text-right text-[#ef5350]">{t.sl.toFixed(2)}</td>
                   <td className="px-3 py-1.5 text-right text-[#26a69a]">{t.tp.toFixed(2)}</td>
-                  <td className="px-3 py-1.5 text-[#8b949e]">{fmt(t.entry_time)}</td>
-                  <td className="px-3 py-1.5 text-[#8b949e]">{fmt(t.close_time)}</td>
+                  <td className="px-3 py-1.5 text-[#554d3d]">{fmt(t.entry_time)}</td>
+                  <td className="px-3 py-1.5 text-[#554d3d]">{fmt(t.close_time)}</td>
                   <td className="px-3 py-1.5 text-center">
                     <span className={`
                       px-1.5 py-0.5 rounded text-[10px] font-bold
